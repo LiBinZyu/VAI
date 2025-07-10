@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text;
+using System;
 
 // --- 数据结构定义 ---
 namespace DashScope.ASR
@@ -92,7 +93,9 @@ namespace DashScope.ASR
     }
 }
 
-
+/// <summary>
+/// 重构后的ASR控制器 - 移除状态管理，作为纯功能组件
+/// </summary>
 public class AliyunAsrController : MonoBehaviour
 {
     [Header("API 配置")]
@@ -106,301 +109,226 @@ public class AliyunAsrController : MonoBehaviour
     [Header("Events")]
     [Tooltip("当收到最终识别结果时触发")]
     public UnityEvent<string> OnRecognitionResult;
-    [Tooltip("当一次完整的流式识别（包括等待服务器最终响应）结束后触发")]
-    public UnityEvent OnStreamingFinished; // 新增的事件
+    [Tooltip("当一次完整的流式识别结束后触发")]
+    public UnityEvent OnStreamingFinished;
 
-    public enum RecognizerState { Idle, Ready, Recording, Processing, Error }
-    public RecognizerState CurrentState { get; private set; } = RecognizerState.Idle;
-
-    // 新增：用于跟踪最后的错误信息
+    // 简化后的属性
     public string LastError { get; private set; } = "";
+    public bool IsProcessing { get; private set; } = false;
 
-    private WebSocket websocket;
-    private string microphoneDevice;
-    private AudioClip recordedClip;
-    private bool isTaskStarted;
-    private bool isTaskFinished;
+    // WebSocket相关
+    private WebSocket _websocket;
+    private string _microphoneDevice;
+    private AudioClip _recordedClip;
     
-    // 保存最终结果给大模型
-    private Dictionary<long, string> _recognizedSentences = new Dictionary<long, string>();
+    // 任务控制
+    private CancellationTokenSource _currentTaskCts;
+    private bool _isTaskStarted;
+    private bool _isTaskFinished;
+    
+    // 识别结果
     private string _lastFinalTranscript = "";
-    public string GetLastFinalTranscript() { return _lastFinalTranscript; }
-    
-    // 为每次识别任务创建一个独立的CancellationTokenSource，避免互相干扰
-    private CancellationTokenSource recognitionTaskCts;
 
-    #region MonoBehaviour 生命周期
+    #region Public API
+
+    /// <summary>
+    /// 获取最后的识别结果
+    /// </summary>
+    public string GetLastFinalTranscript() 
+    { 
+        return _lastFinalTranscript; 
+    }
+
+    /// <summary>
+    /// 开始流式识别
+    /// </summary>
+    public void StartStreaming()
+    {
+        if (IsProcessing)
+        {
+            Debug.LogWarning("ASR正在处理中，请勿重复启动");
+            return;
+        }
+
+        Debug.Log("开始ASR流式识别");
+        _ = StartStreamingAsync();
+    }
+
+    /// <summary>
+    /// 停止流式识别
+    /// </summary>
+    public void StopStreaming()
+    {
+        if (!IsProcessing)
+        {
+            Debug.LogWarning("ASR未在运行，无需停止");
+            return;
+        }
+
+        Debug.Log("停止ASR流式识别");
+        _currentTaskCts?.Cancel();
+    }
+
+    /// <summary>
+    /// 强制重置ASR状态
+    /// </summary>
+    public void Reset()
+    {
+        Debug.Log("重置ASR控制器");
+        StopStreaming();
+        ClearResults();
+    }
+
+    #endregion
+
+    #region Unity Lifecycle
 
     private void Start()
     {
         if (MicController == null)
         {
             Debug.LogError("MicController dependency is not set in AliyunAsrController!");
-            CurrentState = RecognizerState.Error;
             return;
         }
-        CurrentState = RecognizerState.Ready;
+        
+        Debug.Log("ASR控制器初始化完成");
     }
 
     private void Update()
     {
-        if (websocket != null && websocket.State == WebSocketState.Open)
+        // 只处理WebSocket消息队列
+        if (_websocket != null && _websocket.State == WebSocketState.Open)
         {
-            websocket.DispatchMessageQueue();
+            _websocket.DispatchMessageQueue();
         }
     }
 
     private void OnDestroy()
     {
-        Debug.Log("[生命周期] OnDestroy 被调用。如果此时正在处理任务，任务将被取消。");
-        // 取消正在进行的任务
-        recognitionTaskCts?.Cancel();
-        recognitionTaskCts?.Dispose();
-
-        // 安全关闭连接
-        if (websocket != null && websocket.State == WebSocketState.Open)
-        {
-            websocket.Close();
-        }
+        Debug.Log("ASR控制器正在清理...");
+        CleanupWebSocket();
+        _currentTaskCts?.Cancel();
+        _currentTaskCts?.Dispose();
     }
 
     #endregion
 
-    #region 公共控制方法
+    #region Core Recognition Logic
 
-    public void StartStreaming()
+    private async Task StartStreamingAsync()
     {
-        if (CurrentState == RecognizerState.Processing || CurrentState == RecognizerState.Recording)
-        {
-            Debug.LogWarning("当前正在识别中，请勿重复启动。");
-            return;
-        }
-
-        // 启动一个全新的、独立的流式识别任务
-        _ = StreamingRecognitionTask();
-    }
-
-// 提供一个手动停止的方法，以防VAD不生效或需要强制中断
-    public void StopStreaming()
-    {
-        if (recognitionTaskCts != null && !recognitionTaskCts.IsCancellationRequested)
-        {
-            Debug.Log("手动停止流式识别任务...");
-            recognitionTaskCts.Cancel();
-        }
-    }
-
-    #endregion
-
-    #region 核心识别流程
-
-    private async Task StreamingRecognitionTask()
-    {
-        // 1. 初始化状态和控制令牌
-        CurrentState = RecognizerState.Processing;
-        recognitionTaskCts = new CancellationTokenSource();
-        var token = recognitionTaskCts.Token;
-
-        ResetTaskStatus();
-        //string finalRecognizedText = "";
-
-        // 使用麦克风
-        AudioClip recordedClip = MicController.MicrophoneClip;
-        string microphoneDevice = MicController.MicrophoneDevice;
-        if (recordedClip == null || !Microphone.IsRecording(microphoneDevice))
-        {
-            Debug.LogError("没有拿到可用麦克风从MicController");
-            LastError = "麦克风设备无法使用";
-            CurrentState = RecognizerState.Error;
-            return;
-        }
-        Debug.Log("ASR task 使用麦克风");
-
-        // 3. 配置WebSocket
-        string url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
-        var headers = new Dictionary<string, string> { { "Authorization", $"Bearer {ApiKey}" }, { "X-DashScope-DataInspection", "enable" } };
-        websocket = new WebSocket(url, headers);
-
-        // 4. 配置事件回调 (这部分不变)
-        websocket.OnOpen += () => Debug.Log("WebSocket 连接已打开。");
-        websocket.OnClose += (e) => Debug.Log($"WebSocket 连接已关闭，代码: {e}");
-        websocket.OnError += (e) => { 
-            Debug.LogError($"WebSocket 错误: {e}"); 
-            LastError = "网络连接失败，请检查网络设置";
-            isTaskFinished = true; 
-        };
-        websocket.OnMessage += (bytes) => HandleMessage(bytes);
-
         try
         {
-            websocket.Connect();
+            IsProcessing = true;
+            _currentTaskCts = new CancellationTokenSource();
+            var token = _currentTaskCts.Token;
 
-            float connectTimeout = 10f; // 10秒连接超时
-            Debug.Log("正在尝试连接 WebSocket...");
-            while (websocket.State != WebSocketState.Open && connectTimeout > 0 && !token.IsCancellationRequested)
-            {
-                await Task.Delay(100, token);
-                connectTimeout -= 0.1f;
-            }
-
-            // 检查连接是否成功
-            if (websocket.State != WebSocketState.Open)
-            {
-                if (token.IsCancellationRequested)
-                {
-                     Debug.LogWarning("连接过程中任务被取消。");
-                     LastError = "";  // 用户主动取消，不是错误
-                }
-                else
-                {
-                     Debug.LogError($"WebSocket 连接超时或失败，当前状态: {websocket.State}");
-                     LastError = "网络连接超时，请检查网络设置";
-                }
-                throw new System.Exception("WebSocket 连接未成功建立。");
-            }
-            
-            Debug.Log("WebSocket 连接已确认，继续执行任务。");
-
-            // 6. 连接成功后，继续执行后续指令
-            string taskId = System.Guid.NewGuid().ToString("N");
-            await SendRunTaskCommand(taskId);
-            await WaitForTaskStart(token, () => isTaskStarted);
-
-            // 7. --- 核心循环：捕获、转换、发送 ---
-            Debug.Log("进入实时音频流发送循环...");
-            CurrentState = RecognizerState.Recording;
-            int lastPosition = Microphone.GetPosition(microphoneDevice);
-            
-            while (!token.IsCancellationRequested)
-            {
-                int currentPosition = Microphone.GetPosition(microphoneDevice);
-                if (currentPosition != lastPosition)
-                {
-                    int length = (currentPosition > lastPosition) ? (currentPosition - lastPosition) : (recordedClip.samples - lastPosition + currentPosition);
-                    
-                    if (length > 0)
-                    {
-                        float[] samples = new float[length];
-                        recordedClip.GetData(samples, lastPosition);
-                        lastPosition = currentPosition;
-                        byte[] pcmData = ConvertSamplesToPcmBytes(samples);
-                        if (websocket.State == WebSocketState.Open)
-                        {
-                            await websocket.Send(pcmData);
-                        }
-                    }
-                }
-                // 等待一小段时间，避免CPU空转
-                await Task.Delay(100, token);
-            }
-            
-            Debug.Log("音频发送循环已终止。");
-            
-            await SendFinishTaskCommand(taskId);
-            await WaitForTaskFinish(token, () => isTaskFinished);
+            await ExecuteRecognitionPipeline(token);
         }
-        catch (System.OperationCanceledException)
+        catch (OperationCanceledException)
         {
-            Debug.Log("识别任务被正常取消。");
+            Debug.Log("ASR任务被取消");
+            LastError = "";
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            Debug.LogError($"识别流程出现异常: {ex.Message}");
+            Debug.LogError($"ASR任务失败: {ex.Message}");
+            LastError = FormatUserFriendlyError(ex);
         }
         finally
         {
-            // [关键修复] 无论任务如何结束，都首先通知Manager
-            Debug.Log("任务流程结束，正在通知Manager...");
-            OnStreamingFinished?.Invoke(); 
-
-            if (websocket != null && websocket.State == WebSocketState.Open) await websocket.Close();
-            CurrentState = RecognizerState.Ready;
-            recognitionTaskCts.Dispose();
-            recognitionTaskCts = null;
+            IsProcessing = false;
+            CleanupWebSocket();
+            
+            // 通知完成（成功或失败）
+            UnityMainThreadDispatcher.Instance().Enqueue(() => 
+            {
+                OnStreamingFinished?.Invoke();
+            });
         }
     }
-    private void HandleMessage(byte[] bytes)
+
+    private async Task ExecuteRecognitionPipeline(CancellationToken cancellationToken)
     {
-        var message = System.Text.Encoding.UTF8.GetString(bytes);
-        Debug.Log($"[服务器消息] {message}"); // 保留原始消息日志
+        // 1. 验证和初始化
+        await ValidateAndInitialize(cancellationToken);
 
-        var baseResponse = JsonUtility.FromJson<DashScope.ASR.BaseResponse>(message);
-        if (baseResponse?.header == null) return;
+        // 2. 建立WebSocket连接
+        await EstablishWebSocketConnection(cancellationToken);
 
-        // [核心修改] 将拼接逻辑提取到一个单独的方法中，并应用于 result-generated 和 task-finished
-        string reconstructedText = "";
+        // 3. 启动ASR任务
+        string taskId = System.Guid.NewGuid().ToString("N");
+        await StartAsrTask(taskId, cancellationToken);
 
-        switch (baseResponse.header.@event)
-        {
-            case "task-started":
-                isTaskStarted = true;
-                break;
+        // 4. 流式发送音频数据
+        await StreamAudioData(cancellationToken);
 
-            case "result-generated":
-                var intermediateResponse = JsonUtility.FromJson<DashScope.ASR.RecognitionResponse>(message);
-                reconstructedText = ReconstructTextFromWords(intermediateResponse);
-                if (!string.IsNullOrEmpty(reconstructedText))
-                {
-                    Debug.Log($"[中间结果拼接] {reconstructedText}");
-                    _lastFinalTranscript = reconstructedText;// 保存最终结果给大模型
-                    OnRecognitionResult?.Invoke(reconstructedText); // 对中间结果触发事件
-                }
-                break;
-
-            case "task-finished":
-                isTaskFinished = true;
-                var finalResponse = JsonUtility.FromJson<DashScope.ASR.RecognitionResponse>(message);
-                reconstructedText = ReconstructTextFromWords(finalResponse);
-                if (!string.IsNullOrEmpty(reconstructedText))
-                {
-                    Debug.Log($"[最终结果拼接] {reconstructedText}");
-                    // 这里可以根据需求决定是否再次触发 OnRecognitionResult
-                    // 通常，最终结果在 OnStreamingFinished 之前最后一次更新即可
-                    OnRecognitionResult?.Invoke(reconstructedText);
-                }
-                break;
-
-            case "task-failed":
-                isTaskFinished = true;
-                Debug.LogError($"任务失败: {baseResponse.header.error_message}");
-                break;
-        }
+        // 5. 完成任务并等待最终结果
+        await FinishAsrTask(taskId, cancellationToken);
     }
-    
-    #endregion
 
-    #region 辅助方法
-
-    private string ReconstructTextFromWords(DashScope.ASR.RecognitionResponse response)
+    private async Task ValidateAndInitialize(CancellationToken cancellationToken)
     {
-        var stringBuilder = new StringBuilder();
-        foreach (var word in response.payload.output.sentence.words)
+        // 重置状态
+        ClearResults();
+        
+        // 验证麦克风
+        _recordedClip = MicController.MicrophoneClip;
+        _microphoneDevice = MicController.MicrophoneDevice;
+        
+        if (_recordedClip == null || !Microphone.IsRecording(_microphoneDevice))
         {
-            stringBuilder.Append(word.text); 
-            stringBuilder.Append(word.punctuation);
+            throw new InvalidOperationException("麦克风设备不可用");
         }
-        return stringBuilder.ToString();
+        
+        Debug.Log("ASR初始化验证通过");
     }
-    
-    public static byte[] ConvertSamplesToPcmBytes(float[] samples)
-    {
-        // 直接在内存中创建字节数组
-        byte[] pcmData = new byte[samples.Length * 2]; // 16-bit = 2 bytes per sample
-        int byteIndex = 0;
 
-        foreach (var sample in samples)
+    private async Task EstablishWebSocketConnection(CancellationToken cancellationToken)
+    {
+        string url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
+        var headers = new Dictionary<string, string> 
+        { 
+            { "Authorization", $"Bearer {ApiKey}" }, 
+            { "X-DashScope-DataInspection", "enable" } 
+        };
+        
+        _websocket = new WebSocket(url, headers);
+        ConfigureWebSocketEvents();
+        
+        _websocket.Connect();
+        
+        // 等待连接建立（最多10秒）
+        float timeout = 10f;
+        while (_websocket.State != WebSocketState.Open && timeout > 0)
         {
-            // 将-1.0f到1.0f的浮点样本转换为16-bit的short整数
-            short intSample = (short)(sample * short.MaxValue);
-            // 手动将 short 转换为两个字节 (Little Endian)
-            byte[] sampleBytes = System.BitConverter.GetBytes(intSample);
-            pcmData[byteIndex++] = sampleBytes[0];
-            pcmData[byteIndex++] = sampleBytes[1];
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(100, cancellationToken);
+            timeout -= 0.1f;
         }
-        return pcmData;
+        
+        if (_websocket.State != WebSocketState.Open)
+        {
+            throw new TimeoutException("WebSocket连接超时");
+        }
+        
+        Debug.Log("WebSocket连接建立成功");
     }
-    
-    private Task SendRunTaskCommand(string taskId)
+
+    private void ConfigureWebSocketEvents()
+    {
+        _websocket.OnOpen += () => Debug.Log("WebSocket连接打开");
+        _websocket.OnClose += (e) => Debug.Log($"WebSocket连接关闭: {e}");
+        _websocket.OnError += (e) => 
+        { 
+            Debug.LogError($"WebSocket错误: {e}"); 
+            LastError = "网络连接失败";
+            _isTaskFinished = true; 
+        };
+        _websocket.OnMessage += HandleWebSocketMessage;
+    }
+
+    private async Task StartAsrTask(string taskId, CancellationToken cancellationToken)
     {
         var parameters = new DashScope.ASR.Parameters();
         if (!string.IsNullOrEmpty(VocabularyId))
@@ -413,86 +341,224 @@ public class AliyunAsrController : MonoBehaviour
             header = new DashScope.ASR.Header { action = "run-task", task_id = taskId },
             payload = new DashScope.ASR.Payload { parameters = parameters }
         };
+        
         string json = JsonUtility.ToJson(request);
-        Debug.Log($"发送 'run-task' 指令: {json}");
-        return websocket.SendText(json);
+        await _websocket.SendText(json);
+        
+        // 等待任务启动确认
+        await WaitForCondition(() => _isTaskStarted, 10f, "等待任务启动", cancellationToken);
+        Debug.Log("ASR任务启动成功");
     }
-    
-    private Task SendFinishTaskCommand(string taskId)
+
+    private async Task StreamAudioData(CancellationToken cancellationToken)
+    {
+        Debug.Log("开始流式发送音频数据");
+        int lastPosition = Microphone.GetPosition(_microphoneDevice);
+        const int minChunkSize = 1024; // 最小块大小，避免发送过小的数据块
+        
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            int currentPosition = Microphone.GetPosition(_microphoneDevice);
+            if (currentPosition != lastPosition)
+            {
+                int length = CalculateAudioBufferLength(currentPosition, lastPosition);
+                
+                // 只有当数据块足够大时才发送，提高效率
+                if (length >= minChunkSize)
+                {
+                    await SendAudioChunk(lastPosition, length, cancellationToken);
+                    lastPosition = currentPosition;
+                }
+            }
+            
+            await Task.Delay(50, cancellationToken); // 平衡响应性和CPU使用率
+        }
+        
+        Debug.Log("音频数据流发送完成");
+    }
+
+    private int CalculateAudioBufferLength(int currentPosition, int lastPosition)
+    {
+        return (currentPosition > lastPosition) 
+            ? (currentPosition - lastPosition) 
+            : (_recordedClip.samples - lastPosition + currentPosition);
+    }
+
+    private async Task SendAudioChunk(int startPosition, int length, CancellationToken cancellationToken)
+    {
+        float[] samples = new float[length];
+        _recordedClip.GetData(samples, startPosition);
+        byte[] pcmData = ConvertSamplesToPcmBytes(samples);
+        
+        if (_websocket.State == WebSocketState.Open)
+        {
+            await _websocket.Send(pcmData);
+        }
+    }
+
+    private async Task FinishAsrTask(string taskId, CancellationToken cancellationToken)
     {
         var request = new DashScope.ASR.TaskRequest
         {
             header = new DashScope.ASR.Header { action = "finish-task", task_id = taskId }
         };
+        
         string json = JsonUtility.ToJson(request);
-        Debug.Log($"发送 'finish-task' 指令: {json}");
-        return websocket.SendText(json);
+        await _websocket.SendText(json);
+        
+        // 等待任务完成
+        await WaitForCondition(() => _isTaskFinished, 30f, "等待任务完成", cancellationToken);
+        Debug.Log("ASR任务完成");
     }
 
-    // 新增：分块发送音频数据
-    private async Task SendAudioInChunks(byte[] audioData, CancellationToken token)
+    #endregion
+
+    #region WebSocket Message Handling
+
+            private void HandleWebSocketMessage(byte[] bytes)
+        {
+            try
+            {
+                var message = System.Text.Encoding.UTF8.GetString(bytes);
+                
+                // 性能优化：只在Debug模式下记录完整消息
+                #if UNITY_EDITOR || DEVELOPMENT_BUILD
+                Debug.Log($"[ASR消息] {message}");
+                #endif
+
+                var baseResponse = JsonUtility.FromJson<DashScope.ASR.BaseResponse>(message);
+                if (baseResponse?.header == null) return;
+
+                switch (baseResponse.header.@event)
+                {
+                    case "task-started":
+                        _isTaskStarted = true;
+                        Debug.Log("ASR任务已启动");
+                        break;
+
+                    case "result-generated":
+                    case "task-finished":
+                        if (baseResponse.header.@event == "task-finished")
+                        {
+                            _isTaskFinished = true;
+                        }
+                        HandleRecognitionResult(message);
+                        break;
+
+                    case "task-failed":
+                        _isTaskFinished = true;
+                        LastError = baseResponse.header.error_message ?? "ASR任务失败";
+                        Debug.LogError($"ASR任务失败: {LastError}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"处理WebSocket消息时出错: {ex.Message}");
+            }
+        }
+
+    private void HandleRecognitionResult(string message)
     {
-        Debug.Log($"开始分块发送总计 {audioData.Length} 字节的音频数据...");
-        int chunkSize = 1024 * 2; // 每次发送的块大小 (可调整)
-        int offset = 0;
-        while (offset < audioData.Length && !token.IsCancellationRequested)
+        try
         {
-            int remaining = audioData.Length - offset;
-            int currentChunkSize = Mathf.Min(chunkSize, remaining);
-            byte[] chunkData = new byte[currentChunkSize];
-            System.Array.Copy(audioData, offset, chunkData, 0, currentChunkSize);
-            await websocket.Send(chunkData);
+            var response = JsonUtility.FromJson<DashScope.ASR.RecognitionResponse>(message);
+            string recognizedText = ReconstructTextFromWords(response);
             
-            offset += currentChunkSize;
-            Debug.Log($"已发送 {offset}/{audioData.Length} 字节...");
-            
-            // 模拟实时流，延迟100ms
-            await Task.Delay(100, token);
+            if (!string.IsNullOrEmpty(recognizedText))
+            {
+                _lastFinalTranscript = recognizedText;
+                
+                // 在主线程中触发事件
+                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                {
+                    OnRecognitionResult?.Invoke(recognizedText);
+                });
+            }
         }
-        Debug.Log("音频数据发送完毕。");
-    }
-    
-    // 新增：等待任务开始的辅助方法
-    private async Task WaitForTaskStart(CancellationToken token, System.Func<bool> condition)
-    {
-        Debug.Log("等待服务器响应 'task-started'...");
-        float timeout = 10f; // 10秒超时
-        while (!condition() && timeout > 0)
+        catch (Exception ex)
         {
-            await Task.Delay(100, token);
-            timeout -= 0.1f;
+            Debug.LogError($"处理识别结果时出错: {ex.Message}");
         }
-        if (!condition())
-        {
-            throw new TaskCanceledException("等待 'task-started' 超时。请检查API Key和网络。");
-        }
-        Debug.Log("'task-started' 已收到。");
     }
 
-    // 新增：等待任务结束的辅助方法
-    private async Task WaitForTaskFinish(CancellationToken token, System.Func<bool> condition)
+    private string ReconstructTextFromWords(DashScope.ASR.RecognitionResponse response)
     {
-        Debug.Log("等待服务器响应 'task-finished' 或 'task-failed'...");
-        float timeout = 60f; // 60秒超时
-        while (!condition() && timeout > 0)
+        if (response?.payload?.output?.sentence?.words == null) 
+            return "";
+
+        var stringBuilder = new StringBuilder();
+        foreach (var word in response.payload.output.sentence.words)
         {
-            await Task.Delay(100, token);
-            timeout -= 0.1f;
+            stringBuilder.Append(word.text); 
+            stringBuilder.Append(word.punctuation);
         }
+        return stringBuilder.ToString().Trim();
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private async Task WaitForCondition(Func<bool> condition, float timeoutSeconds, string description, CancellationToken cancellationToken)
+    {
+        float elapsed = 0f;
+        while (!condition() && elapsed < timeoutSeconds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(100, cancellationToken);
+            elapsed += 0.1f;
+        }
+        
         if (!condition())
         {
-            Debug.LogWarning("等待任务结束超时。");
-        } 
-        Debug.Log("任务结束事件已收到。");
+            throw new TimeoutException($"{description}超时");
+        }
     }
-    
-    private void ResetTaskStatus()
+
+    private void ClearResults()
     {
-        isTaskStarted = false;
-        isTaskFinished = false;
         _lastFinalTranscript = "";
-        _recognizedSentences.Clear();
-        LastError = ""; // 开始新任务时清空错误信息
+        LastError = "";
+        _isTaskStarted = false;
+        _isTaskFinished = false;
+    }
+
+    private void CleanupWebSocket()
+    {
+        if (_websocket != null)
+        {
+            if (_websocket.State == WebSocketState.Open)
+            {
+                _ = _websocket.Close();
+            }
+            _websocket = null;
+        }
+    }
+
+    private string FormatUserFriendlyError(Exception ex)
+    {
+        return ex switch
+        {
+            TimeoutException => "连接超时，请检查网络",
+            InvalidOperationException => "设备错误，请重试",
+            _ => "处理失败，请重试"
+        };
+    }
+
+    public static byte[] ConvertSamplesToPcmBytes(float[] samples)
+    {
+        byte[] pcmData = new byte[samples.Length * 2];
+        int byteIndex = 0;
+
+        foreach (var sample in samples)
+        {
+            short intSample = (short)(sample * short.MaxValue);
+            byte[] sampleBytes = System.BitConverter.GetBytes(intSample);
+            pcmData[byteIndex++] = sampleBytes[0];
+            pcmData[byteIndex++] = sampleBytes[1];
+        }
+        return pcmData;
     }
 
     #endregion

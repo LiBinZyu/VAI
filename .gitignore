@@ -6,6 +6,8 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
+/[Aa]ssets/.idea
+/.idea
 
 # MemoryCaptures can get excessive in size.
 /[Mm]emoryCaptures/
