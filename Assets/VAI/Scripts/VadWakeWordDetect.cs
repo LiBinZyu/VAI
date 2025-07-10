@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI; // 若使用TMP则改为 using TMPro;
+using UnityEngine.UI;
 using UnityEngine.Windows.Speech;
 using System.Linq;
 using UnityEngine.Events;

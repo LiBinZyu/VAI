@@ -3,7 +3,7 @@
 This tool enables voice commands to control your Unity application using LLM. It includes a user interface (UI) for easy and explicit interaction.
 
 1.  **[Wake Word]** 
-    The system hears `"Hey Computer"` and wakes up. **Important:** this is the only function relies on Windows platform.
+    The system hears `"Hi there"` and wakes up. **Important:** this is the only function relies on Windows platform.
 
 2.  **[ASR]** 
     `"turn the light on and make it slightly red-ish"`
@@ -37,7 +37,7 @@ This tool enables voice commands to control your Unity application using LLM. It
     2.  Go to `Window` -\> `Package Manager`.
     3.  Click the `+` button in the top left corner.
     4.  Select `Add package from git URL...`.
-    5.  Enter `https://github.com/endel/NativeWebSocket.git?path=/Packages/NativeWebSocket` and click `Add`.
+    5.  Enter `https://github.com/endel/NativeWebSocket/tree/upm` and click `Add`.
 
 ### Usage
 
