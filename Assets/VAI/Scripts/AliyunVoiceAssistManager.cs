@@ -104,16 +104,19 @@ public class AliyunVoiceAssistManager : MonoBehaviour
         switch (currentState)
         {
             case AssistantState.Idle:
-                if (statusText != null) statusText.text = "Ready. Say the wake word.";
+                if (statusText != null) statusText.text = "";
                 break;
             case AssistantState.ListeningForCommand:
-                if (statusText != null) statusText.text = "Awake. Listening for your command...";
+                if (statusText != null) statusText.text = "倾听中...";
                 break;
             case AssistantState.ProcessingCommand:
-                if (statusText != null) statusText.text = "Processing command...";
+                if (statusText != null) statusText.text = "思考中...";
                 break;
             case AssistantState.FunctionCalled:
-                if (statusText != null) statusText.text = "Function executed successfully!";
+                if (statusText != null) statusText.text = "指令已执行";
+                break;
+            case AssistantState.Invalid:
+                if (statusText != null) statusText.text = "发生一些错误，请重试";
                 break;
         }
     }
@@ -149,6 +152,18 @@ public class AliyunVoiceAssistManager : MonoBehaviour
             return;
         }
 
+        // 检查是否有网络错误
+        if (!string.IsNullOrEmpty(asrController.LastError))
+        {
+            Debug.LogWarning($"ASR发生网络错误: {asrController.LastError}");
+            SetState(AssistantState.Invalid);
+            // 在设置状态后再覆盖statusText，确保网络错误信息能正确显示
+            if (statusText != null) statusText.text = asrController.LastError;
+            await Task.Delay(2500);
+            SetState(AssistantState.Idle);
+            return;
+        }
+
         try
         {
             SetState(AssistantState.ProcessingCommand);
@@ -171,7 +186,17 @@ public class AliyunVoiceAssistManager : MonoBehaviour
             }
 
             // 3. 触发LLM处理
-            await llmController.ProcessCommand(command);
+            bool hasFunctionCall = await llmController.ProcessCommand(command);
+            
+            // 4. 根据是否有函数调用决定状态
+            if (hasFunctionCall)
+            {
+                OnFunctionCalled();
+            }
+            else
+            {
+                OnInvalidResponse();
+            }
         }
         catch (System.Exception ex)
         {
@@ -179,11 +204,6 @@ public class AliyunVoiceAssistManager : MonoBehaviour
             Debug.LogError($"指令处理过程中发生错误: {ex.Message}");
             if (statusText != null) statusText.text = "处理指令时出错。";
             await Task.Delay(1500);
-        }
-        finally
-        {
-            // 4. [关键修复] 无论成功或失败，处理完毕后，都重置系统到空闲状态
-            Debug.Log("处理流程结束。返回空闲状态。");
             SetState(AssistantState.Idle);
         }
     }
@@ -192,6 +212,14 @@ public class AliyunVoiceAssistManager : MonoBehaviour
     public async void OnFunctionCalled() 
     {
         SetState(AssistantState.FunctionCalled);
+        await Task.Delay(2500);
+        SetState(AssistantState.Idle);
+    }
+    
+    // This method should be called when LLM responds without function calling
+    public async void OnInvalidResponse() 
+    {
+        SetState(AssistantState.Invalid);
         await Task.Delay(2500);
         SetState(AssistantState.Idle);
     }

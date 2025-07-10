@@ -97,13 +97,13 @@ namespace VAI
             //httpClient.Timeout = TimeSpan.FromSeconds(30);
         }
 
-        public async Task ProcessCommand(string command)
+        public async Task<bool> ProcessCommand(string command)
         {
             userInput = userInputField.text;
             if (string.IsNullOrEmpty(command))
             {
                 testResponseText.text = "Error: Received an empty command.";
-                return;
+                return false;
             }
 
             testResponseText.text = "Processing...";
@@ -111,11 +111,13 @@ namespace VAI
             assistantManager.VaiResponse.text = "Processing...";
             
             print($"apiFuncCalling processing command: {command}");
-            response = await GetLLMResponse(command);
+            var (responseText, hasFunctionCall) = await GetLLMResponse(command);
+            response = responseText;
             testResponseText.text = response;
             assistantManager.VaiResponse.text = response;
             print("LLM Response: " + response);
-            assistantManager.OnFunctionCalled();
+            
+            return hasFunctionCall;
         }
 
         // 获取函数定义列表
@@ -204,7 +206,7 @@ namespace VAI
         }
 
 
-        private async Task<string> GetLLMResponse(string prompt)
+        private async Task<(string response, bool hasFunctionCall)> GetLLMResponse(string prompt)
         {
             string endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
             var requestData = new
@@ -249,24 +251,25 @@ namespace VAI
                 {
                     print(message.content);
                     // 执行本地函数
-                    return ExecuteLocalFunction(message.function_call.name,  message.function_call.arguments);
+                    return (ExecuteLocalFunction(message.function_call.name,  message.function_call.arguments), true);
                 }
                 else
                 {
-                    return message.content;
+                    return (message.content, false);
                 }
             }
             else
             {
-                return $"请求失败：{response.StatusCode}";
+                return ($"请求失败：{response.StatusCode}", false);
             }
         }
 
         // ---- for test only ----
-        public void SendMessageFromInputField()
+        public async void SendMessageFromInputField()
         {
             userInput = userInputField.text;
-            _ = ProcessCommand(userInput); // Call the main method
+            bool hasFunctionCall = await ProcessCommand(userInput); // Call the main method
+            Debug.Log($"Function call result: {hasFunctionCall}");
         }
 
         private void Update()

@@ -45,5 +45,5 @@ This tool enables voice commands to control your Unity application using LLM. It
 2.  Open ExampleScene.
 3.  Change the wake word in the Inspector panel. It is `Kang Kang` by default, you can add multiple w ake word at the same time.
 4.  In the ASR and LLM Inspector panel, you will find a field to enter your Alibaba Cloud BaiLian **API Key**.
-    **Important:** You need an Alibaba Cloud BaiLian API key to use this tool. Refer to the following documentation to obtain one: [如何获取API Key\_大模型服务平台百炼(Model Studio)-阿里云帮助中心](https://www.google.com/search?q=https://help.aliyun.com/document_1611175701489758.html)
+    **Important:** You need an Alibaba Cloud DataScope API key to use this tool. Refer to the following documentation to obtain one: [如何获取API Key\_大模型服务平台百炼(Model Studio)-阿里云帮助中心](https://www.google.com/search?q=https://help.aliyun.com/document_1611175701489758.html)
 5.  Click to run.

@@ -112,6 +112,9 @@ public class AliyunAsrController : MonoBehaviour
     public enum RecognizerState { Idle, Ready, Recording, Processing, Error }
     public RecognizerState CurrentState { get; private set; } = RecognizerState.Idle;
 
+    // 新增：用于跟踪最后的错误信息
+    public string LastError { get; private set; } = "";
+
     private WebSocket websocket;
     private string microphoneDevice;
     private AudioClip recordedClip;
@@ -207,6 +210,7 @@ public class AliyunAsrController : MonoBehaviour
         if (recordedClip == null || !Microphone.IsRecording(microphoneDevice))
         {
             Debug.LogError("没有拿到可用麦克风从MicController");
+            LastError = "麦克风设备无法使用";
             CurrentState = RecognizerState.Error;
             return;
         }
@@ -220,7 +224,11 @@ public class AliyunAsrController : MonoBehaviour
         // 4. 配置事件回调 (这部分不变)
         websocket.OnOpen += () => Debug.Log("WebSocket 连接已打开。");
         websocket.OnClose += (e) => Debug.Log($"WebSocket 连接已关闭，代码: {e}");
-        websocket.OnError += (e) => { Debug.LogError($"WebSocket 错误: {e}"); isTaskFinished = true; };
+        websocket.OnError += (e) => { 
+            Debug.LogError($"WebSocket 错误: {e}"); 
+            LastError = "网络连接失败，请检查网络设置";
+            isTaskFinished = true; 
+        };
         websocket.OnMessage += (bytes) => HandleMessage(bytes);
 
         try
@@ -241,10 +249,12 @@ public class AliyunAsrController : MonoBehaviour
                 if (token.IsCancellationRequested)
                 {
                      Debug.LogWarning("连接过程中任务被取消。");
+                     LastError = "";  // 用户主动取消，不是错误
                 }
                 else
                 {
                      Debug.LogError($"WebSocket 连接超时或失败，当前状态: {websocket.State}");
+                     LastError = "网络连接超时，请检查网络设置";
                 }
                 throw new System.Exception("WebSocket 连接未成功建立。");
             }
@@ -482,6 +492,7 @@ public class AliyunAsrController : MonoBehaviour
         isTaskFinished = false;
         _lastFinalTranscript = "";
         _recognizedSentences.Clear();
+        LastError = ""; // 开始新任务时清空错误信息
     }
 
     #endregion
