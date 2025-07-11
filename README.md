@@ -14,6 +14,8 @@
 
 `VAI (Unity Voice AI Command)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
+>⭐ This system can be easily integrated into any Unity project. Usage is simple: just register your own functions in `FunctionRegistry.cs` and you're ready to go.
+
 A user can say something like, `"turn the light on and make it slightly red-ish,"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
 <p align="center">
@@ -106,7 +108,9 @@ The system operates in a simple, four-step workflow:
 
 `VAI (Unity Voice AI Command)` 是一个端到端系统，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
 
-用户可以说出像“`打开灯，让它变成微红色`”这样的指令，系统会智能地将其解析为一个精确、结构化的命令，您的应用程序可以立即执行。
+> 该系统可以非常方便地集成到任何 Unity 项目中，使用方法也很简单：只需在 `FunctionRegistry.cs` 文件中填写您项目中的函数即可。
+
+用户可以说出像“`打开灯，让它变成淡淡的红色`”这样的指令，系统会智能地将其解析为一个精确、结构化的命令，您的应用程序可以立即执行。
 
 ## 功能
 
