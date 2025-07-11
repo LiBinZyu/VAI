@@ -5,9 +5,14 @@ using System.Threading;
 using System;
 using VAI;
 
-/// <summary>
-/// 重构后的语音助手管理器 - 使用集中式状态机和健壮的异步任务管理
-/// </summary>
+namespace VAI{
+    public class VAItoggle{
+        public void StartVAI(){
+
+        }
+    }   
+
+}
 public class AliyunVoiceAssistManager : MonoBehaviour
 {
     [Header("Component References")]
@@ -44,11 +49,10 @@ public class AliyunVoiceAssistManager : MonoBehaviour
     public enum VoiceAssistantState
     {
         Idle,
-        ListeningForCommand, 
+        ListeningForCommand,    // 已经被唤醒后持续ASR的状态
         ProcessingCommand,
-        ExecutingFunction,
-        ShowingResult,
-        Error,
+        FunctionCalled,        // 函数执行成功后激活的状态，维持2.5秒
+        Invalid,
         Shutdown
     }
 
@@ -103,7 +107,7 @@ public class AliyunVoiceAssistManager : MonoBehaviour
             if (vadWakeWordDetect == null || asrController == null || llmController == null)
             {
                 Debug.LogError("一个或多个组件引用未在Manager中设置！");
-                TransitionToState(VoiceAssistantState.Error);
+                TransitionToState(VoiceAssistantState.Invalid);
                 return;
             }
 
@@ -122,7 +126,7 @@ public class AliyunVoiceAssistManager : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"初始化失败: {ex.Message}");
-            TransitionToState(VoiceAssistantState.Error);
+            TransitionToState(VoiceAssistantState.Invalid);
         }
     }
 
@@ -210,7 +214,7 @@ public class AliyunVoiceAssistManager : MonoBehaviour
                 StartVadSilenceMonitoring();
                 break;
                 
-            case VoiceAssistantState.Error:
+            case VoiceAssistantState.Invalid:
                 // 自动恢复机制
                 ScheduleErrorRecovery();
                 break;
@@ -241,15 +245,14 @@ public class AliyunVoiceAssistManager : MonoBehaviour
         switch (state)
         {
             case VoiceAssistantState.Idle:
+                return "";
             case VoiceAssistantState.ListeningForCommand:
                 return "倾听中...";
             case VoiceAssistantState.ProcessingCommand:
                 return "思考中...";
-            case VoiceAssistantState.ExecutingFunction:
-                return "执行中...";
-            case VoiceAssistantState.ShowingResult:
+            case VoiceAssistantState.FunctionCalled:
                 return "指令已执行";
-            case VoiceAssistantState.Error:
+            case VoiceAssistantState.Invalid:
                 return "发生错误，正在重试...";
             default:
                 return state.ToString();
@@ -358,7 +361,7 @@ public class AliyunVoiceAssistManager : MonoBehaviour
             {
                 Debug.LogError($"任务执行失败: {task.Exception?.GetBaseException().Message}");
                 UnityMainThreadDispatcher.Instance().Enqueue(() => 
-                    TransitionToState(VoiceAssistantState.Error));
+                    TransitionToState(VoiceAssistantState.Invalid));
             }
         }, TaskScheduler.Default);
     }
@@ -441,8 +444,6 @@ public class AliyunVoiceAssistManager : MonoBehaviour
     {
         try
         {
-            TransitionToState(VoiceAssistantState.ExecutingFunction);
-            
             // 使用超时机制调用LLM
             var llmTask = llmController.ProcessCommand(command);
             var timeoutTask = Task.Delay(TimeSpan.FromSeconds(llmTimeoutSeconds), cancellationToken);
@@ -456,10 +457,12 @@ public class AliyunVoiceAssistManager : MonoBehaviour
             
             bool hasToolCall = await llmTask;
             
-            TransitionToState(VoiceAssistantState.ShowingResult);
-            
-            // 显示结果状态
-            await Task.Delay(TimeSpan.FromSeconds(statusDisplayTime), cancellationToken);
+            if (hasToolCall)
+            {
+                // 函数执行成功后激活FunctionCalled状态，维持2.5秒
+                TransitionToState(VoiceAssistantState.FunctionCalled);
+                await Task.Delay(TimeSpan.FromSeconds(statusDisplayTime), cancellationToken);
+            }
             
             Debug.Log($"命令处理完成，工具调用: {hasToolCall}");
         }
@@ -477,7 +480,7 @@ public class AliyunVoiceAssistManager : MonoBehaviour
 
     private async Task ShowErrorMessage(string message)
     {
-        TransitionToState(VoiceAssistantState.Error);
+        TransitionToState(VoiceAssistantState.Invalid);
         
         await UnityMainThreadDispatcher.Instance().EnqueueAsync(() =>
         {

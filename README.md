@@ -12,11 +12,13 @@
 [![Unity Version](https://img.shields.io/badge/Unity-2022.3.47%2B-blue.svg)](https://unity.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20-blue.svg)](#)
 
-`VAI (Unity Voice AI Command)` is an end-to-end system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
+`VAI (Unity Voice AI Command)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
 A user can say something like, `"turn the light on and make it slightly red-ish,"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
-![screenshot](https://i.imgur.com/HOJluuQ.png)
+<p align="center">
+ <img src="https://i.imgur.com/wpZ9NF2.gif" width="600">
+</p>
 
 ## Features
 

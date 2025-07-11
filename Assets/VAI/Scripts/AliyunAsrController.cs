@@ -226,7 +226,7 @@ public class AliyunAsrController : MonoBehaviour
             await ExecuteRecognitionPipeline(token);
         }
         catch (OperationCanceledException)
-        {
+                {
             Debug.Log("ASR任务被取消");
             LastError = "";
         }
@@ -243,7 +243,7 @@ public class AliyunAsrController : MonoBehaviour
             // 通知完成（成功或失败）
             UnityMainThreadDispatcher.Instance().Enqueue(() => 
             {
-                OnStreamingFinished?.Invoke();
+            OnStreamingFinished?.Invoke(); 
             });
         }
     }
@@ -314,7 +314,7 @@ public class AliyunAsrController : MonoBehaviour
         
         Debug.Log("WebSocket连接建立成功");
     }
-
+    
     private void ConfigureWebSocketEvents()
     {
         _websocket.OnOpen += () => Debug.Log("WebSocket连接打开");
@@ -327,7 +327,7 @@ public class AliyunAsrController : MonoBehaviour
         };
         _websocket.OnMessage += HandleWebSocketMessage;
     }
-
+    
     private async Task StartAsrTask(string taskId, CancellationToken cancellationToken)
     {
         var parameters = new DashScope.ASR.Parameters();
@@ -383,7 +383,7 @@ public class AliyunAsrController : MonoBehaviour
             ? (currentPosition - lastPosition) 
             : (_recordedClip.samples - lastPosition + currentPosition);
     }
-
+    
     private async Task SendAudioChunk(int startPosition, int length, CancellationToken cancellationToken)
     {
         float[] samples = new float[length];
@@ -495,7 +495,7 @@ public class AliyunAsrController : MonoBehaviour
         }
         return stringBuilder.ToString().Trim();
     }
-
+    
     #endregion
 
     #region Helper Methods
@@ -529,7 +529,7 @@ public class AliyunAsrController : MonoBehaviour
         if (_websocket != null)
         {
             if (_websocket.State == WebSocketState.Open)
-            {
+        {
                 _ = _websocket.Close();
             }
             _websocket = null;
@@ -537,7 +537,7 @@ public class AliyunAsrController : MonoBehaviour
     }
 
     private string FormatUserFriendlyError(Exception ex)
-    {
+        {
         return ex switch
         {
             TimeoutException => "连接超时，请检查网络",
@@ -545,7 +545,7 @@ public class AliyunAsrController : MonoBehaviour
             _ => "处理失败，请重试"
         };
     }
-
+    
     public static byte[] ConvertSamplesToPcmBytes(float[] samples)
     {
         byte[] pcmData = new byte[samples.Length * 2];

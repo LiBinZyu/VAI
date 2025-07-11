@@ -1,17 +1,3 @@
-/*
- * Alibaba Cloud Tool Calling System for Unity - Refactored
- * 
- * Simplified version focusing on core tool calling functionality with improved async handling.
- * 
- * Key Features:
- * - ✅ Multiple tool calling support
- * - ✅ Parallel tool execution capability  
- * - ✅ Robust error handling with timeout support
- * - ✅ Simplified async operations
- * - ✅ Better performance with reduced overhead
- * 
- * Updated: 2024 - Refactored for better maintainability and performance
- */
 
 namespace VAI
 {
@@ -26,9 +12,10 @@ namespace VAI
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading;
+    using VAI;
 
     #region Data Structures for API Communication
-    
+
     public class ChatCompletionResponse
     {
         public List<Choice> choices { get; set; }
@@ -98,25 +85,9 @@ namespace VAI
     #endregion
 
     #region Function Argument Classes
-    
-    public class TransformObjectArguments
-    {
-        public string objectName { get; set; }
-        public string transformType { get; set; }
-        public float number { get; set; }
-    }
-    
-    public class ChangeObjectColorArguments
-    {
-        public string objectName { get; set; }
-        public string hexColor { get; set; }
-    }
-        
+    // 移除所有参数类，改为自动生成
     #endregion
 
-    /// <summary>
-    /// 重构后的API函数调用控制器 - 专注于工具调用功能
-    /// </summary>
     public class apiFuncCalling : MonoBehaviour
     {
         [Header("API Configuration")]
@@ -441,110 +412,36 @@ namespace VAI
 
         private List<Tool> GetToolDefinitions()
         {
-            // 使用缓存提高性能
-            if (_cachedToolDefinitions != null)
+            // 自动从FunctionRegistry生成Tool定义
+            return VAI.FunctionRegistry.All().Select(meta => new Tool
             {
-                return _cachedToolDefinitions;
-            }
-            
-            _cachedToolDefinitions = new List<Tool>
-            {
-                new Tool
+                type = "function",
+                function = new FunctionDefinition
                 {
-                    type = "function",
-                    function = new FunctionDefinition
+                    name = meta.Name,
+                    description = meta.Description,
+                    parameters = new ParametersDefinition
                     {
-                        name = "ModifyTransform",
-                        description = "修改物体的变换属性，包括移动、旋转和缩放",
-                        parameters = new ParametersDefinition
-                        {
-                            properties = new Dictionary<string, FunctionParameter>
+                        properties = meta.Parameters.ToDictionary(
+                            kv => kv.Key,
+                            kv => new FunctionParameter
                             {
-                                { "objectName", new FunctionParameter
-                                {
-                                    type = "string", 
-                                    description = "物体的名字",
-                                    @enum = new List<string> { "cube", "sphere", "capsule", "main camera" }
-                                }},
-                                { "transformType", new FunctionParameter { 
-                                    type = "string", 
-                                    description = "transform的维度", 
-                                    @enum = new List<string> { "moveleft", "moveright", "movebackward", "moveforward", "moveup", "movedown", "pitch", "yaw", "roll", "scale" }
-                                }},
-                                { "number", new FunctionParameter
-                                {
-                                    type = "number", 
-                                    description = "给物体transform某维度改变的数值，不能出现负数，物体只有30cm大，摄像机只能移动和旋转（镜像）针对摄像机转动的幅度要小"
-                                } }
-                            },
-                            required = new List<string> { "objectName", "transformType", "number" }
-                        }
-                    }
-                },
-                new Tool
-                {
-                    type = "function",
-                    function = new FunctionDefinition
-                    {
-                        name = "ChangeObjectColor",
-                        description = "改变物体的颜色",
-                        parameters = new ParametersDefinition
-                        {
-                            properties = new Dictionary<string, FunctionParameter>
-                            {
-                                { "objectName", new FunctionParameter
-                                {
-                                    type = "string", 
-                                    description = "物体的名字",
-                                    @enum = new List<string> { "cube", "sphere", "capsule", "main camera" }
-                                }},
-                                { "hexColor", new FunctionParameter { 
-                                    type = "string", 
-                                    description = "hex color code"
-                                }}
-                            },
-                            required = new List<string> { "objectName", "hexColor"}
-                        }
+                                type = kv.Value.Type,
+                                description = kv.Value.Description,
+                                @enum = kv.Value.Enum
+                            }
+                        ),
+                        required = meta.Parameters.Keys.ToList()
                     }
                 }
-            };
-            
-            return _cachedToolDefinitions;
+            }).ToList();
         }
 
         private string ExecuteLocalFunction(string functionName, string argumentsJson)
         {
-            if (funcCallingList == null)
-            {
-                throw new InvalidOperationException("FuncCallingList未设置");
-            }
-
-            try
-            {
-                switch (functionName)
-                {
-                    case "ModifyTransform":
-                        var transformArgs = JsonConvert.DeserializeObject<TransformObjectArguments>(argumentsJson);
-                        funcCallingList.ModifyTransform(transformArgs.objectName, transformArgs.transformType, transformArgs.number); 
-                        return $"已成功修改 {transformArgs.objectName} 的 {transformArgs.transformType}，数值: {transformArgs.number}";
-
-                    case "ChangeObjectColor":
-                        var colorArgs = JsonConvert.DeserializeObject<ChangeObjectColorArguments>(argumentsJson);
-                        funcCallingList.ChangeObjectColor(colorArgs.objectName, colorArgs.hexColor);
-                        return $"已成功将 {colorArgs.objectName} 的颜色更改为 {colorArgs.hexColor}";
-                    
-                    default:
-                        throw new ArgumentException($"未知函数: {functionName}");
-                }
-            }
-            catch (JsonException ex)
-            {
-                throw new ArgumentException($"函数参数解析失败: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"函数执行失败: {ex.Message}");
-            }
+            var meta = VAI.FunctionRegistry.Get(functionName);
+            var args = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(argumentsJson);
+            return meta.Execute(args);
         }
 
         #endregion
@@ -599,7 +496,7 @@ namespace VAI
                 InvalidOperationException => "操作失败，请重试",
                 _ => "处理失败，请重试"
             };
-        }
+                }
 
         #endregion
 
