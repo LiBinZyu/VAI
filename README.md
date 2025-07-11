@@ -16,6 +16,8 @@
 
 A user can say something like, `"turn the light on and make it slightly red-ish,"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
+![screenshot](https://i.imgur.com/aK65q9O.png)
+
 ## Features
 
 * **Customizable Wake Word**: Define one or more phrases to activate voice listening. (**Note**: This feature currently relies on the Windows platform API.)
