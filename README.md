@@ -1,6 +1,6 @@
 <div align="center">
 
-# Unity Voice AI Command
+# Unity Voice AI Assistant
 </div>
 
 <p align="center">
@@ -12,7 +12,7 @@
 [![Unity Version](https://img.shields.io/badge/Unity-2022.3.47%2B-blue.svg)](https://unity.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20-blue.svg)](#)
 
-`VAI (Unity Voice AI Command)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
+`VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
 >⭐ This system can be easily integrated into any Unity project. Usage is simple: just register your own functions in `FunctionRegistry.cs` and you're ready to go.
 
@@ -75,7 +75,7 @@ The system operates in a simple, four-step workflow:
 
 2.  **Add NativeWebSocket Package**
     * In the `Package Manager`, click the `+` icon and select `Add package from git URL...`.
-    * Enter `https://github.com/endel/NativeWebSocket/tree/upm` and click `Add`.
+    * Enter `https://github.com/endel/NativeWebSocket.git#upm` and click `Add`.
 
 ## Usage
 
@@ -90,7 +90,7 @@ The system operates in a simple, four-step workflow:
     * In the `Inspector`, locate the `ASR and LLM` configuration section.
     * Enter your API Key in the `Api Key` field.
 
-4.  **Write and configer functions at `apiFuncCalling.cs` and `FuncCallingLists.cs`**
+4.  **Write and configer functions at `FunctionRegistry.cs` and `FuncCallingLists.cs`**
     * There are two functions which are to change transform and color for objects at the scene.
 
 5.  **Run the Application**
@@ -106,7 +106,7 @@ The system operates in a simple, four-step workflow:
 [](https://unity.com/)
 [](https://www.google.com/search?q=%23)
 
-`VAI (Unity Voice AI Command)` 是一个端到端系统，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
+`VAI (Unity Voice AI Assistant)` 是一个端到端系统，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
 
 > 该系统可以非常方便地集成到任何 Unity 项目中，使用方法也很简单：只需在 `FunctionRegistry.cs` 文件中填写您项目中的函数即可。
 
@@ -174,7 +174,7 @@ The system operates in a simple, four-step workflow:
 2.  **添加 NativeWebSocket 包**
 
       * 在 `Package Manager` 中，点击 `+` 图标，选择 `Add package from git URL...`。
-      * 输入 `https://github.com/endel/NativeWebSocket/tree/upm` 并点击 `Add`。
+      * 输入 `https://github.com/endel/NativeWebSocket.git#upm` 并点击 `Add`。
 
 ## 使用方法
 
@@ -192,7 +192,7 @@ The system operates in a simple, four-step workflow:
       * 在 `Inspector` 面板中，找到 `ASR and LLM` 配置部分。
       * 在 `Api Key` 字段中输入您的 API Key。
 
-4.  **在 `apiFuncCalling.cs` 和 `FuncCallingLists.cs` 中编写和配置函数**
+4.  **在 `FunctionRegistry` 和 `FuncCallingLists.cs` 中编写和配置函数**
 
       * 示例中提供了两个函数，用于更改场景中物体的变换和颜色。
 

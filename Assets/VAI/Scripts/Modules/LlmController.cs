@@ -1,31 +1,46 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+using System.Net.Http;
+using System.Linq;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace VAI
 {
-    using System;
-    using UnityEngine;
-    using UnityEngine.UI;
-    using System.Text;
-    using System.Net.Http;
-    using System.Threading.Tasks;
-    using Newtonsoft.Json;
-    using System.IO;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading;
-    using VAI;
+    // LLM处理结果数据结构
+    public class LlmResult
+    {
+        public string Response { get; set; }
+        public bool IsError { get; set; }
+        public string ErrorMessage { get; set; }
+        public bool HasToolCall { get; set; }
+        
+        public static LlmResult Success(string response, bool hasToolCall = false) => 
+            new LlmResult { Response = response, IsError = false, HasToolCall = hasToolCall };
+        
+        public static LlmResult Error(string errorMessage) => 
+            new LlmResult { Response = "", IsError = true, ErrorMessage = errorMessage, HasToolCall = false };
+    }
 
-    #region Data Structures for API Communication
-
+    // API通信数据结构
+    [System.Serializable]
     public class ChatCompletionResponse
     {
         public List<Choice> choices { get; set; }
     }
 
+    [System.Serializable]
     public class Choice
     {
         public Message message { get; set; }
     }
 
+    [System.Serializable]
     public class Message
     {
         public string role { get; set; }
@@ -39,6 +54,7 @@ namespace VAI
     }
 
     // Legacy function call class (deprecated but kept for compatibility)
+    [System.Serializable]
     public class FunctionCall
     {
         public string name { get; set; }
@@ -46,6 +62,7 @@ namespace VAI
     }
 
     // New tool call classes
+    [System.Serializable]
     public class ToolCall
     {
         public string id { get; set; }
@@ -54,12 +71,14 @@ namespace VAI
     }
 
     // Tool definition for request
+    [System.Serializable]
     public class Tool
     {
         public string type { get; set; } = "function";
         public FunctionDefinition function { get; set; }
     }
 
+    [System.Serializable]
     public class FunctionParameter
     {
         public string type { get; set; }
@@ -68,63 +87,57 @@ namespace VAI
         public List<string> @enum { get; set; }
     }
 
+    [System.Serializable]
     public class FunctionDefinition
     {
         public string name { get; set; }
         public string description { get; set; }
         public ParametersDefinition parameters { get; set; }
     }
-    
+
+    [System.Serializable]
     public class ParametersDefinition
     {
         public string type { get; set; } = "object";
         public Dictionary<string, FunctionParameter> properties { get; set; }
         public List<string> required { get; set; }
     }
-    
-    #endregion
 
-    #region Function Argument Classes
-    // 移除所有参数类，改为自动生成
-    #endregion
-
-    public class apiFuncCalling : MonoBehaviour
+    public class LlmController : MonoBehaviour
     {
-        [Header("API Configuration")]
+        [Header("Api")]
+        [Tooltip("Aliyun DashScope API Key")]
         public string apiKey;
+        [Tooltip("Model name")]
         public string modelName = "qwen-max";
-        public string systemRole;
+        [Tooltip("System role")]
+        [TextArea(6, 12)]
+        public string systemRole = "你是一个智能助手，帮助用户控制Unity场景中的物体。";
         
-        [Header("Dependencies")]
-        public FuncCallingList funcCallingList;
+        [Header("Timeout")]
+        [Tooltip("Request timeout (seconds)")]
+        public float requestTimeoutSeconds = 30f;
         
-        [Header("Tool Calling Settings")]
-        [Tooltip("Enable parallel tool calling - allows multiple tools to be called simultaneously")]
+        [Header("Tool")]
+        [Tooltip("启用并行工具调用")]
         public bool enableParallelToolCalls = true;
-        
-        [Tooltip("Enable backward compatibility with old function call format")]
+        [Tooltip("启用向后兼容的旧函数调用格式")]
         public bool enableLegacyFunctionCalls = true;
 
-        [Header("Timeout Settings")]
-        [Tooltip("Maximum time to wait for LLM response (seconds)")]
-        public float requestTimeoutSeconds = 30f;
+        // Manager接口事件
+        public event Action<LlmResult> OnProcessingComplete;
+        public event Action<string> Error;
 
-        [Header("UI for Testing")]
-        public Text userInputField;
-        public Text testResponseText;
+        // 依赖
+        public FuncCallingList funcCallingList;
 
-        // Core properties
-        public bool IsProcessing { get; private set; }
-        public string LastError { get; private set; } = "";
-        
-        // HTTP client (reused for performance)
+        // 私有状态
+        private bool _isProcessing = false;
         private static readonly HttpClient _httpClient = new HttpClient();
         private CancellationTokenSource _currentRequestCts;
-        
-        // 缓存工具定义以提高性能
         private List<Tool> _cachedToolDefinitions;
 
-        #region Unity Lifecycle
+        #region Unity lifecycle
 
         void Start()
         {
@@ -132,10 +145,14 @@ namespace VAI
             
             if (funcCallingList == null)
             {
-                Debug.LogError("FuncCallingList未设置！");
+                funcCallingList = FindObjectOfType<FuncCallingList>();
+                if (funcCallingList == null)
+                {
+                    Debug.LogError("FuncCallingList未找到！");
+                }
             }
             
-            Debug.Log("API函数调用控制器初始化完成");
+            Debug.Log("LLM控制器初始化完成");
         }
 
         void OnDestroy()
@@ -148,91 +165,77 @@ namespace VAI
         {
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
             _httpClient.DefaultRequestHeaders.Clear();
-            
-            // Set a reasonable timeout
             _httpClient.Timeout = TimeSpan.FromSeconds(requestTimeoutSeconds + 5);
         }
 
         #endregion
 
-        #region Public API
+        #region Manager接口实现
 
-        /// <summary>
-        /// 处理命令的主要入口点
-        /// </summary>
-        /// <param name="command">用户命令</param>
-        /// <returns>是否有工具被调用</returns>
-        public async Task<bool> ProcessCommand(string command)
+        public void ProcessCommand(string command)
         {
-            if (IsProcessing)
+            if (_isProcessing)
             {
-                Debug.LogWarning("正在处理另一个命令，请稍候");
-                return false;
+                Debug.LogWarning("LLM正在处理另一个命令，请稍候");
+                return;
             }
 
             if (string.IsNullOrWhiteSpace(command))
             {
-                UpdateUI("错误：收到空命令", "命令不能为空");
-                return false;
+                Error?.Invoke("命令不能为空");
+                return;
             }
 
+            Debug.Log($"LLM: 开始处理命令: {command}");
+            _ = ProcessCommandAsync(command);
+        }
+
+        public void CancelProcessing()
+        {
+            Debug.Log("LLM: 取消处理");
+            _currentRequestCts?.Cancel();
+            _isProcessing = false;
+        }
+
+        #endregion
+
+        #region 核心LLM处理逻辑
+
+        private async Task ProcessCommandAsync(string command)
+        {
             try
             {
-                IsProcessing = true;
+                _isProcessing = true;
                 _currentRequestCts = new CancellationTokenSource();
-                
-                UpdateUI("处理中...", "正在分析命令...");
-                
-                Debug.Log($"开始处理命令: {command}");
                 
                 var result = await ProcessCommandInternal(command, _currentRequestCts.Token);
                 
-                UpdateUI("完成", result.response);
-                Debug.Log($"命令处理完成，工具调用: {result.hasToolCall}");
-                
-                return result.hasToolCall;
+                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                {
+                    OnProcessingComplete?.Invoke(result);
+                });
             }
             catch (OperationCanceledException)
             {
-                Debug.Log("命令处理被取消");
-                UpdateUI("已取消", "命令处理被取消");
-                return false;
+                Debug.Log("LLM处理被取消");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"处理命令时出错: {ex.Message}");
+                Debug.LogError($"LLM处理失败: {ex.Message}");
                 string errorMessage = FormatUserFriendlyError(ex);
-                UpdateUI("错误", errorMessage);
-                LastError = errorMessage;
-                return false;
+                UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke(errorMessage));
             }
             finally
             {
-                IsProcessing = false;
+                _isProcessing = false;
                 _currentRequestCts?.Dispose();
                 _currentRequestCts = null;
             }
         }
 
-        /// <summary>
-        /// 取消当前正在进行的请求
-        /// </summary>
-        public void CancelCurrentRequest()
+        private async Task<LlmResult> ProcessCommandInternal(string command, CancellationToken cancellationToken)
         {
-            if (IsProcessing)
-            {
-                Debug.Log("取消当前请求");
-                _currentRequestCts?.Cancel();
-            }
-        }
-
-        #endregion
-
-        #region Core Processing Logic
-
-        private async Task<(string response, bool hasToolCall)> ProcessCommandInternal(string command, CancellationToken cancellationToken)
-        {
-            // 1. 调用LLM获取响应
+            // 1. 调用LLM API
             var llmResponse = await CallLLMApi(command, cancellationToken);
             
             // 2. 解析响应
@@ -242,11 +245,12 @@ namespace VAI
             if (parsedResponse.hasToolCalls)
             {
                 var toolResults = await ExecuteToolCalls(parsedResponse.toolCalls, cancellationToken);
-                return (toolResults, true);
+                return LlmResult.Success(toolResults, hasToolCall: true);
             }
             else
             {
-                return (parsedResponse.content ?? "模型返回了空响应", false);
+                var content = parsedResponse.content ?? "模型返回了空响应";
+                return LlmResult.Success(content, hasToolCall: false);
             }
         }
 
@@ -269,9 +273,8 @@ namespace VAI
 
             string jsonData = JsonConvert.SerializeObject(requestData);
             
-            // 性能优化：只在Debug模式下记录请求详情
             #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            Debug.Log($"发送API请求: {jsonData.Substring(0, Math.Min(200, jsonData.Length))}...");
+            Debug.Log($"发送LLM请求: {jsonData}");
             #endif
 
             using var request = new HttpRequestMessage
@@ -283,7 +286,6 @@ namespace VAI
             
             request.Headers.Add("Authorization", $"Bearer {apiKey}");
 
-            // 使用带超时的请求
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(requestTimeoutSeconds));
 
@@ -298,7 +300,7 @@ namespace VAI
             string result = await response.Content.ReadAsStringAsync();
             
             #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            Debug.Log($"API响应: {result.Substring(0, Math.Min(300, result.Length))}...");
+            Debug.Log($"LLM API响应: {result.Substring(0, Math.Min(300, result.Length))}...");
             #endif
             
             return result;
@@ -408,45 +410,56 @@ namespace VAI
 
         #endregion
 
-        #region Tool Definitions and Execution
+        #region 工具定义和执行
 
         private List<Tool> GetToolDefinitions()
         {
-            // 自动从FunctionRegistry生成Tool定义
-            return VAI.FunctionRegistry.All().Select(meta => new Tool
+            if (_cachedToolDefinitions == null)
             {
-                type = "function",
-                function = new FunctionDefinition
+                _cachedToolDefinitions = FunctionRegistry.All().Select(meta => new Tool
                 {
-                    name = meta.Name,
-                    description = meta.Description,
-                    parameters = new ParametersDefinition
+                    type = "function",
+                    function = new FunctionDefinition
                     {
-                        properties = meta.Parameters.ToDictionary(
-                            kv => kv.Key,
-                            kv => new FunctionParameter
-                            {
-                                type = kv.Value.Type,
-                                description = kv.Value.Description,
-                                @enum = kv.Value.Enum
-                            }
-                        ),
-                        required = meta.Parameters.Keys.ToList()
+                        name = meta.Name,
+                        description = meta.Description,
+                        parameters = new ParametersDefinition
+                        {
+                            properties = meta.Parameters.ToDictionary(
+                                kv => kv.Key,
+                                kv => new FunctionParameter
+                                {
+                                    type = kv.Value.Type,
+                                    description = kv.Value.Description,
+                                    @enum = kv.Value.Enum
+                                }
+                            ),
+                            required = meta.Parameters.Keys.ToList()
+                        }
                     }
-                }
-            }).ToList();
+                }).ToList();
+            }
+            return _cachedToolDefinitions;
         }
 
         private string ExecuteLocalFunction(string functionName, string argumentsJson)
         {
-            var meta = VAI.FunctionRegistry.Get(functionName);
-            var args = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, object>>(argumentsJson);
-            return meta.Execute(args);
+            try
+            {
+                var meta = FunctionRegistry.Get(functionName);
+                var args = JsonConvert.DeserializeObject<Dictionary<string, object>>(argumentsJson);
+                return meta.Execute(args);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"执行函数 {functionName} 失败: {ex.Message}");
+                return $"错误: 执行函数失败 - {ex.Message}";
+            }
         }
 
         #endregion
 
-        #region Helper Methods
+        #region 辅助方法
 
         private string FormatExecutionResults(List<string> results, List<string> errors)
         {
@@ -474,18 +487,6 @@ namespace VAI
             return response.ToString().Trim();
         }
 
-        private void UpdateUI(string status, string response)
-        {
-            if (testResponseText != null) testResponseText.text = response;
-            
-            // 也更新语音助手的UI
-            var assistantManager = GetComponent<AliyunVoiceAssistManager>();
-            if (assistantManager?.VaiResponse != null)
-            {
-                assistantManager.VaiResponse.text = response;
-            }
-        }
-
         private string FormatUserFriendlyError(Exception ex)
         {
             return ex switch
@@ -496,19 +497,6 @@ namespace VAI
                 InvalidOperationException => "操作失败，请重试",
                 _ => "处理失败，请重试"
             };
-                }
-
-        #endregion
-
-        #region Test Methods (for debugging)
-
-        public async void SendMessageFromInputField()
-        {
-            if (userInputField == null) return;
-            
-            string userInput = userInputField.text;
-            bool hasToolCall = await ProcessCommand(userInput);
-            Debug.Log($"测试结果 - 工具调用: {hasToolCall}");
         }
 
         #endregion
