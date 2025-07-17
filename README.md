@@ -19,7 +19,7 @@
 A user can say something like, `"turn the light on and make it slightly red-ish,"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
 <p align="center">
- <img src="https://i.imgur.com/wpZ9NF2.gif" width="600">
+ <img src="https://i.imgur.com/tQx9ST4.gif" width="600">
 </p>
 
 ## Features
