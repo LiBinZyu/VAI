@@ -24,6 +24,13 @@ namespace VAI
                 LlmResult = null;
                 ErrorInfo = null;
             }
+
+            public void ClearMainInfo()
+            {
+                AsrResult = null;
+                LlmResult = null;
+                ErrorInfo = null;
+            }
         }
 
         [Header("Module References")]
@@ -120,6 +127,9 @@ namespace VAI
                     llmModule.CancelProcessing();
                     break;
                 case AssistantState.Listening:
+                    // Cancel any pending return to idle (in case we're interrupting Success/Invalid states)
+                    CancelInvoke(nameof(ReturnToIdle));
+                    _conversationData.ClearMainInfo();
                     asrModule.StartRecognition();
                     vadModule.StartSilenceMonitoring();
                     break;
@@ -150,8 +160,10 @@ namespace VAI
 
         private void HandleWakeWordRecognized(PhraseRecognizedEventArgs args)
         {
-            // Only respond to wake words when idle
-            if (_currentState != AssistantState.Idle) return;
+            // Only respond to wake words when idle, or when in Success/Invalid states (to allow interruption)
+            if (_currentState != AssistantState.Idle && 
+                _currentState != AssistantState.Success && 
+                _currentState != AssistantState.Invalid) return;
             
             _conversationData.WakeWord = args.text;
             _conversationData.WakeWordConfidence = 

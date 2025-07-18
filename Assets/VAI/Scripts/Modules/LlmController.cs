@@ -106,10 +106,10 @@ namespace VAI
     public class LlmController : MonoBehaviour
     {
         [Header("Api")]
-        [Tooltip("Aliyun DashScope API Key")]
-        public string apiKey;
+        [Tooltip("Aliyun DashScope API Key, leave empty to use environment variable DASHSCOPE_API_KEY")]
+        public string apiKey = "DASHSCOPE_API_KEY";
         [Tooltip("Model name")]
-        public string modelName = "qwen-max";
+        public string modelName = "qwen-turbo";
         [Tooltip("System role")]
         [TextArea(6, 12)]
         public string systemRole = "你是一个智能助手，帮助用户控制Unity场景中的物体。";
@@ -136,12 +136,24 @@ namespace VAI
         private static readonly HttpClient _httpClient = new HttpClient();
         private CancellationTokenSource _currentRequestCts;
         private List<Tool> _cachedToolDefinitions;
+        
+        // 实际使用的API Key
+        private string _effectiveApiKey;
 
         #region Unity lifecycle
 
         void Start()
         {
             InitializeHttpClient();
+
+            if (string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(apiKey)))
+            {
+                throw new InvalidOperationException("API Key not found, plz add DASHSCOPE_API_KEY to environment variables");
+            }
+            else
+            {
+                _effectiveApiKey = System.Environment.GetEnvironmentVariable(apiKey);
+            }
             
             if (funcCallingList == null)
             {
@@ -255,7 +267,7 @@ namespace VAI
         }
 
         private async Task<string> CallLLMApi(string prompt, CancellationToken cancellationToken)
-        {
+        {   
             string endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
             
             var requestData = new
@@ -284,7 +296,7 @@ namespace VAI
                 Content = new StringContent(jsonData, Encoding.UTF8, "application/json")
             };
             
-            request.Headers.Add("Authorization", $"Bearer {apiKey}");
+            request.Headers.Add("Authorization", $"Bearer {_effectiveApiKey}");
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(requestTimeoutSeconds));

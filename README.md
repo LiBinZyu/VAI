@@ -87,8 +87,8 @@ The system operates in a simple, four-step workflow:
     * In the `Inspector`, find the `Wake Word` field and set your desired activation phrase(s).
 
 3.  **Configure API Key**
-    * In the `Inspector`, locate the `ASR and LLM` configuration section.
-    * Enter your API Key in the `Api Key` field.
+    * Set your API Key as an environment variable and fill the environment variable name in the Inspector.
+    * The system will automatically read the API Key from the environment variables.
 
 4.  **Write and configer functions at `FunctionRegistry.cs` and `FuncCallingLists.cs`**
     * There are two functions which are to change transform and color for objects at the scene.
@@ -96,6 +96,11 @@ The system operates in a simple, four-step workflow:
 5.  **Run the Application**
     * Press the `Play` button in the Unity Editor.
     * State your wake word, followed by a command, to interact with the scene.
+
+6.  **Integration with Your Own Project**
+    * Use the `Startup()` function to initialize and start the VAI service and UI.
+    * Use the `Shutdown()` function to stop the VAI service and UI when needed.
+    * This makes it easy to integrate VAI into your existing Unity projects.
 
 <br>
 <p align="right"><a href="#readme">⬆ Back to Top</a></p>
@@ -189,8 +194,8 @@ The system operates in a simple, four-step workflow:
 
 3.  **配置 API Key**
 
-      * 在 `Inspector` 面板中，找到 `ASR and LLM` 配置部分。
-      * 在 `Api Key` 字段中输入您的 API Key。
+      * 将您的 API Key 设置为环境变量，在 Inspector 面板中填写变量名。
+      * 系统会自动从环境变量中读取 API Key。
 
 4.  **在 `FunctionRegistry` 和 `FuncCallingLists.cs` 中编写和配置函数**
 
@@ -200,6 +205,12 @@ The system operates in a simple, four-step workflow:
 
       * 在 Unity 编辑器中点击 `Play` 按钮。
       * 说出您的唤醒词，然后跟上一个命令，与场景进行交互。
+
+6.  **集成到您自己的项目中**
+
+      * 使用 `Startup()` 函数来初始化并启动 VAI 服务和 UI。
+      * 使用 `Shutdown()` 函数在需要时停止 VAI 服务和 UI。
+      * 这使得将 VAI 集成到您现有的 Unity 项目中变得非常简单。
 
 <br>
 <p align="right"><a href="#readme">⬆ 返回顶部</a></p>

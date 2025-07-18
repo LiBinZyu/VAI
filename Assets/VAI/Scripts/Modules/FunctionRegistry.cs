@@ -33,7 +33,7 @@ namespace VAI
                 {
                     { "objectName", new ParameterMeta { Type = "string", Description = "物体的名字", Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
                     { "transformType", new ParameterMeta { Type = "string", Description = "transform的维度", Enum = new List<string> { "moveleft", "moveright", "movebackward", "moveforward", "moveup", "movedown", "pitch", "yaw", "roll", "scale" } } },
-                    { "number", new ParameterMeta { Type = "number", Description = "给物体transform某维度改变的数值，不能出现负数，物体只有30cm大，摄像机只能移动和旋转（镜像）针对摄像机转动的幅度要小" } }
+                    { "number", new ParameterMeta { Type = "number", Description = "给物体transform某维度改变的数值，不能出现负数，物体只有0.3m大，摄像机只能移动和旋转（镜像）针对摄像机转动的幅度要小，camera离物体2m远，如果操作摄像机请用正常的反方向" } }
                 },
                 Execute = args =>
                 {
@@ -74,7 +74,7 @@ namespace VAI
         {
             if (_functions.TryGetValue(name, out var meta))
                 return meta;
-            throw new ArgumentException($"未知函数: {name}");
+            throw new ArgumentException($"Unregistered function: {name}");
         }
 
         public static List<FunctionMeta> All() => new List<FunctionMeta>(_functions.Values);

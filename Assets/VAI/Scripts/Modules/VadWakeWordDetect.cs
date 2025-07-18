@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Windows.Speech;
 using System.Collections;
+using UnityEngine.Events;
 
 namespace VAI
 {
@@ -25,7 +26,7 @@ namespace VAI
         public float maxRecordingTime = 15.0f;
 
         [Header("Optional")]
-        public Text volumeText;
+        public UnityEvent<float> OnVolumeChanged = new UnityEvent<float>();
 
 
         // --- Events ---
@@ -140,11 +141,7 @@ namespace VAI
         private void Update()
         {
             _currentVolume = GetCurrentVolume();
-            
-            if (volumeText != null)
-            {
-                volumeText.text = _currentVolume.ToString("F2");
-            }
+            OnVolumeChanged.Invoke(_currentVolume);
         }
         
 
@@ -172,7 +169,7 @@ namespace VAI
                 if (_currentVolume > silenceVolumeThreshold)
                 {
                     hasDetectedVolumeChange = true;
-                    Debug.Log("VAD: Volume change detected during wake buffer time.");
+                    //Debug.Log("VAD: Volume change detected during wake buffer time.");
                 }
 
                 yield return null;

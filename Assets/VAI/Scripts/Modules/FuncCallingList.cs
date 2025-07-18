@@ -22,7 +22,7 @@ public class FuncCallingList : MonoBehaviour
     public string ModifyTransform(string objectName, string transformType, float number) 
     {
         if (!objectLookup.TryGetValue(objectName.ToLower(), out GameObject targetObject))
-        { return $"错误: 无效的对象 '{objectName}'。"; }
+        { return $"Invalid: 无效的对象 '{objectName}'。"; }
         
         Transform camTransform = Camera.main.transform;
         const float animDuration = 0.5f;
@@ -31,37 +31,45 @@ public class FuncCallingList : MonoBehaviour
         {
             case "moveright":
                 StartCoroutine(MoveObject(targetObject.transform, camTransform.right * number, animDuration));
-                return $"成功: 对象 '{objectName}' 已向右移动 {number} 米。";
+                return $"Ok,  '{objectName}' 已向右移动 {number} 米。";
             case "moveleft":
                 StartCoroutine(MoveObject(targetObject.transform, -camTransform.right * number, animDuration));
-                return $"成功: 对象 '{objectName}' 已向左移动 {number} 米。";
+                return $"Ok,  '{objectName}' 已向左移动 {number} 米。";
             case "moveup":
                 StartCoroutine(MoveObject(targetObject.transform, camTransform.up * number, animDuration));
-                return $"成功: 对象 '{objectName}' 已向上移动 {number} 米。";
+                return $"Ok,  '{objectName}' 已向上移动 {number} 米。";
             case "movedown":
                 StartCoroutine(MoveObject(targetObject.transform, -camTransform.up * number, animDuration));
-                return $"成功: 对象 '{objectName}' 已向下移动 {number} 米。";
+                return $"Ok,  '{objectName}' 已向下移动 {number} 米。";
             case "moveforward":
-                StartCoroutine(MoveObject(targetObject.transform, -camTransform.forward * number, animDuration));
-                return $"成功: 对象 '{objectName}' 已向前移动 {number} 米。";
+                if(objectName.ToLower() == "main camera")
+                {
+                    StartCoroutine(MoveCamera(camTransform.forward * number, animDuration));
+                }
+                else{StartCoroutine(MoveObject(targetObject.transform, -camTransform.forward * number, animDuration));}
+                return $"Ok,  '{objectName}' 已向前移动 {number} 米。";
             case "movebackward":
-                StartCoroutine(MoveObject(targetObject.transform, camTransform.forward * number, animDuration));
-                return $"成功: 对象 '{objectName}' 已向后移动 {number} 米。";
+                if(objectName.ToLower() == "main camera")
+                {
+                    StartCoroutine(MoveCamera(-camTransform.forward * number, animDuration));
+                }
+                else{StartCoroutine(MoveObject(targetObject.transform, camTransform.forward * number, animDuration));}
+                return $"Ok,  '{objectName}' 已向后移动 {number} 米。";
             case "pitch": // 上下点头：围绕摄像机的 right 轴旋转
                 StartCoroutine(AnimateRotation(targetObject.transform, camTransform.right, number, animDuration));
-                return $"成功: 对象 '{objectName}' 已 Pitch 旋转 {number} 度。";
+                return $"Ok,  '{objectName}' 已 Pitch 旋转 {number} 度。";
             case "yaw":   // 左右摇头：围绕摄像机的 up 轴旋转
                 StartCoroutine(AnimateRotation(targetObject.transform, camTransform.up, number, animDuration));
-                return $"成功: 对象 '{objectName}' 已 Yaw 旋转 {number} 度。";
+                return $"Ok,  '{objectName}' 已 Yaw 旋转 {number} 度。";
             case "roll":  // 侧向翻滚：围绕摄像机的 forward 轴旋转
                 StartCoroutine(AnimateRotation(targetObject.transform, camTransform.forward, number, animDuration));
-                return $"成功: 对象 '{objectName}' 已 Roll 旋转 {number} 度。";
+                return $"Ok,  '{objectName}' 已 Roll 旋转 {number} 度。";
             case "scale":
                 Vector3 targetScale = Vector3.one * number;
                 StartCoroutine(AnimateScale(targetObject.transform, targetScale, animDuration));
-                return $"成功: 对象 '{objectName}' 已改变大小至 {number}。";
+                return $"Ok,  '{objectName}' 已改变大小至 {number}。";
             default:
-                return $"错误: 无效的 transform 类型 '{transformType}'。";
+                return $"Invalid: 无效的 transform 类型 '{transformType}'。";
         }
 }
 
@@ -69,13 +77,13 @@ public class FuncCallingList : MonoBehaviour
     {
         if (!objectLookup.TryGetValue(objectName.ToLower(), out GameObject targetObject))
         {
-            return $"错误: 无效的对象 '{objectName}'。";
+            return $"Invalid: 无效的对象 '{objectName}'。";
         }
         
         // ColorUtility.TryParseHtmlString 可以处理带或不带'#'的颜色代码
         ColorUtility.TryParseHtmlString(hexColor, out Color newColor);
         targetObject.GetComponent<Renderer>().material.color = newColor;
-        return $"成功: 对象 '{objectName}' 的颜色已更改为 {hexColor}。";
+        return $"Ok,  '{objectName}' 的颜色已更改为 {hexColor}。";
     }
     
     private IEnumerator MoveCamera(Vector3 direction, float animDuration)

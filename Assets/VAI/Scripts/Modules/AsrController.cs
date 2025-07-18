@@ -102,10 +102,10 @@ namespace VAI
     public class AsrController : MonoBehaviour
     {
         [Header("Api")]
-        [Tooltip("Aliyun DashScope API Key")]
-        public string ApiKey;
-        // [Tooltip("Optional vocabulary id for custom hot words")]
-        // public string VocabularyId;
+        [Tooltip("Aliyun DashScope API Key, leave empty to use environment variable DASHSCOPE_API_KEY")]
+        public string apiKey = "DASHSCOPE_API_KEY";
+        [Tooltip("Optional vocabulary id for custom hot words")]
+        public string VocabularyId;
         
         [Header("VAD script")]
         [Tooltip("VAD script")]
@@ -128,6 +128,9 @@ namespace VAI
         
         // 识别结果
         private string _lastFinalTranscript = "";
+        
+        // 实际使用的API Key
+        private string _effectiveApiKey;
 
         #region Manager接口实现
 
@@ -206,6 +209,15 @@ namespace VAI
             _isTaskStarted = false;
             _isTaskFinished = false;
             
+            if (string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(apiKey)))
+            {
+                throw new InvalidOperationException("API Key not found, plz add DASHSCOPE_API_KEY to environment variables");
+            }
+            else
+            {
+                _effectiveApiKey = System.Environment.GetEnvironmentVariable(apiKey);
+            }
+            
             // 验证麦克风
             if (vadModule?.MicrophoneClip == null || !Microphone.IsRecording(vadModule.MicrophoneDevice))
             {
@@ -223,7 +235,7 @@ namespace VAI
             string url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
             var headers = new Dictionary<string, string> 
             { 
-                { "Authorization", $"Bearer {ApiKey}" }, 
+                { "Authorization", $"Bearer {_effectiveApiKey}" }, 
                 { "X-DashScope-DataInspection", "enable" } 
             };
             
@@ -256,6 +268,7 @@ namespace VAI
             _websocket.OnError += (e) => 
             { 
                 Debug.LogError($"WebSocket错误: {e}"); 
+                // This could possibly caused by WRONG API KEY!
                 UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke("网络连接失败"));
                 _isTaskFinished = true; 
             };
@@ -265,10 +278,10 @@ namespace VAI
         private async Task StartAsrTask(string taskId, CancellationToken cancellationToken)
         {
             var parameters = new Parameters();
-            // if (!string.IsNullOrEmpty(VocabularyId))
-            // {
-            //     parameters.vocabulary_id = VocabularyId;
-            // }
+            if (!string.IsNullOrEmpty(VocabularyId))
+            {
+                parameters.vocabulary_id = VocabularyId;
+            }
             
             var request = new TaskRequest
             {
@@ -340,7 +353,7 @@ namespace VAI
             await _websocket.SendText(json);
             
             // 等待任务完成
-            await WaitForCondition(() => _isTaskFinished, 30f, "等待任务完成", cancellationToken);
+            await WaitForCondition(() => _isTaskFinished, vadModule.maxRecordingTime, "等待任务完成", cancellationToken);
             Debug.Log("ASR任务完成");
         }
 
