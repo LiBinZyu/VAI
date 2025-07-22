@@ -22,13 +22,16 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
  <img src="https://i.imgur.com/qLNHnYd.gif" width="600">
 </p>
 
-<p align="center">
-  <img src="https://i.imgur.com/MXbp5vp.png" style="width:100%; max-width:350px; margin:8px;">
-  <img src="https://i.imgur.com/CuRH15w.png" style="width:100%; max-width:350px; margin:8px;">
-  <br>
-  <img src="https://i.imgur.com/VSuOYZx.png" style="width:100%; max-width:350px; margin:8px;">
-  <img src="https://i.imgur.com/IjXZdsb.jpeg" style="width:100%; max-width:350px; margin:8px;">
-</p>
+<table align="center">
+  <tr>
+    <td><img src="https://i.imgur.com/MXbp5vp.png" width="350"></td>
+    <td><img src="https://i.imgur.com/CuRH15w.png" width="350"></td>
+  </tr>
+  <tr>
+    <td><img src="https://i.imgur.com/VSuOYZx.png" width="350"></td>
+    <td><img src="https://i.imgur.com/IjXZdsb.jpeg" width="350"></td>
+  </tr>
+</table>
 
 
 ## Features
