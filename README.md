@@ -16,11 +16,20 @@
 
 >⭐ This system can be easily integrated into any Unity project. Usage is simple: just register your own functions in `FunctionRegistry.cs` and you're ready to go.
 
-A user can say something like, `"turn the light on and make it slightly red-ish,"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
+A user can say something like, `"Flip the cube, move me a bit closer to it and paint the ball navy blue"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
 <p align="center">
- <img src="https://i.imgur.com/tQx9ST4.gif" width="600">
+ <img src="https://i.imgur.com/qLNHnYd.gif" width="600">
 </p>
+
+<p align="center">
+  <img src="https://i.imgur.com/MXbp5vp.png" style="width:100%; max-width:350px; margin:8px;">
+  <img src="https://i.imgur.com/CuRH15w.png" style="width:100%; max-width:350px; margin:8px;">
+  <br>
+  <img src="https://i.imgur.com/VSuOYZx.png" style="width:100%; max-width:350px; margin:8px;">
+  <img src="https://i.imgur.com/IjXZdsb.jpeg" style="width:100%; max-width:350px; margin:8px;">
+</p>
+
 
 ## Features
 
@@ -43,18 +52,28 @@ The system operates in a simple, four-step workflow:
 3.  **LLM Tool Call Generation**
     * The transcribed text is sent to the LLM, which generates a structured JSON `tool_call` based on the user's intent and predefined functions.
 
-    ```json
-    {
-      "tool_name": "set_light_state",
-      "parameters": {
-        "power_status": "on",
-        "color": "#EE8C8C"
-      }
-    }
+    ```csharp
+    Register(new FunctionMeta
+            {
+                Name = "ChangeObjectColor",
+                Description = "改变物体的颜色",
+                Parameters = new Dictionary<string, ParameterMeta>
+                {
+                    { "objectName", new ParameterMeta { 
+                      Type = "string", 
+                      Description = "物体的名字", 
+                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
+                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
+                },
+                Execute = args =>
+                {
+                    ...
+                }
+            });
     ```
 
 4.  **Function Execution**
-    * Your Unity application receives this JSON, parses it, and invokes the corresponding local C# function with the provided parameters.
+    * Your Unity application receives JSON, parses it, and invokes the corresponding local C# function with the provided parameters.
 
 ## Getting Started
 
@@ -115,7 +134,7 @@ The system operates in a simple, four-step workflow:
 
 > 该系统可以非常方便地集成到任何 Unity 项目中，使用方法也很简单：只需在 `FunctionRegistry.cs` 文件中填写您项目中的函数即可。
 
-用户可以说出像“`打开灯，让它变成淡淡的红色`”这样的指令，系统会智能地将其解析为一个精确、结构化的命令，您的应用程序可以立即执行。
+用户可以说出像“`把正方体回转一下，挪向我这边，然后把球刷成海军蓝色`”这样的指令，系统会智能地将其解析为一个精确、结构化的命令，您的应用程序可以立即执行。
 
 ## 功能
 
@@ -143,19 +162,29 @@ The system operates in a simple, four-step workflow:
 
     <!-- end list -->
 
-    ```json
-    {
-      "tool_name": "set_light_state",
-      "parameters": {
-        "power_status": "on",
-        "color": "#EE8C8C"
-      }
-    }
+    ```csharp
+    Register(new FunctionMeta
+            {
+                Name = "ChangeObjectColor",
+                Description = "改变物体的颜色",
+                Parameters = new Dictionary<string, ParameterMeta>
+                {
+                    { "objectName", new ParameterMeta { 
+                      Type = "string", 
+                      Description = "物体的名字", 
+                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
+                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
+                },
+                Execute = args =>
+                {
+                    ...
+                }
+            });
     ```
 
 4.  **函数执行**
 
-      * 您的 Unity 应用程序接收此 JSON，对其进行解析，并使用提供的参数调用相应的本地函数。
+      * 您的 Unity 应用程序接收 JSON，对其进行解析，并使用提供的参数调用相应的本地函数。
 
 ## 开始使用
 
