@@ -1,0 +1,7 @@
+{
+    "displayName": "vai - Character Play Example",
+    "description": "Use Ready Player Me Core SDK to play character.",
+    "dependencies": {
+      "com.readyplayerme.core": "https://github.com/readyplayerme/rpm-unity-sdk-core.git"
+    }
+  }
