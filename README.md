@@ -46,8 +46,9 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 The system operates in an explicit workflow:
 
-```plantuml
+<!--
 @startuml
+
 actor User
 participant "Simple VAD" as VAD
 participant ASR
@@ -83,7 +84,10 @@ deactivate Functions
 deactivate VAD
 == VAI.Shutdown ==
 @enduml
-```
+-->
+<p align="center">
+ <img src="https://cdn-0.plantuml.com/plantuml/png/LPBRwjim3CRl_HIYzzi3559QrXK6xKr3TpKOmb4NKn-29RVhsy_AjkJlYnnqqFVzaBrdmImbU8DMKeORKpPJJJdh9em2czw5oHDyFnmtWApVfdxehqryFb_Q-LjqyePJYLPSYgmYQsHCrrN9Rv_x6ME2hZD66U3JJgssq4-43nT_cJ4c8KXFodyBHnAo0Yzy4BnI7WnMoISApOYclgh6JlcgY6J2m81bSCcidGfV7pMR-ouumPXarkD_4X_T6DXvYfQqjanzyObdBH3ant_1keXgJ75Wi2a4Z8CPg75U0jqPUe6-M4lCz-9DJQd8igXAu7X2iICnI4h-fqNl3NacEA6R1rPNV1842Yc_uKUyfmptacKi6GQo7ZEgfA6MI25MfCNOB7yj3tpzJRP8GzEqwYbkuKfISasGTciDCd7niZWtNcjIjxxSZR78a5vHByU-KfVW_m00" width="600">
+</p>
 
 1.  **Wake Word Detection**
     * The system listens passively for a predefined wake word (e.g., `"Assistant"`).
@@ -190,7 +194,7 @@ deactivate VAD
 
 该系统的工作流程简单，分为以下步骤：
 
-```plantuml
+<!--
 @startuml
 
 actor 用户 as User
@@ -228,7 +232,11 @@ deactivate Functions
 deactivate VAD
 == VAI.Shutdown ==
 @enduml
-```
+-->
+<p align="center">
+ <img src="https://cdn-0.plantuml.com/plantuml/png/NP9VQzDG6CRltqznsBr-W4771Y88yqQPLuA4Bc0X9gF91jwbT4rZkp-TwtJYsgtQqO1cYMobOkhwPVAUd7mBtyIQS2oqFUtpEy_pvELTDosbRks-qK2fMaQT9NsFkpEcc6pBLEkmGsAjMjjHT8kj93Ss7fwzs7YqakdqBSiYyDFBMn4uw7xBYOtdpsG2nnE2X6TpRuJ3RWvjRZwLeIszPht5zcz-5kR0urszQjKCtGIeL2ZroKFi1TZn-BIHU5rMgG1aLTc3jQpIAiEvZPEk2Ev4C83Nkc6fpDWZFHVvLvjFkzWVfyvx4Ho2GjPx2Y6a0j07sQnbnGcTDd1-7C-lnFqfFLVwvGHAd0YWDz5B-FmAm_sawPFfqaOATCDqy8bSCgsuXAtRzADFnpYAi3FwPqWJ8Utu9BKR_A0THsF-eSqlliEsAiKNFuW7HRCOTtlOkUJD5ZfJOFGYWVpA0PAhwv0nimn3UrLLD0rKpLGPZd-8kslvOb4aNWpGFnSt8IwSbpgjH_ph27j7IUJp-tt-imMglatLf3Pbjo8RYjD_bVYxYHWTuEmQMpCHDYb0GlCrN6LYqSVFmxzi4ftouKMHAQMKVsRZBnOc7tIvCElKcLR-3m00" width="600">
+</p>
+
 
 1.  **唤醒词检测**
 
