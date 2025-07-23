@@ -180,7 +180,38 @@ sequenceDiagram
 
 ## 工作原理
 
-该系统的工作流程简单，分为四个步骤：
+该系统的工作流程简单，分为以下步骤：
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant VAD as 简单VAD
+    participant ASR as 语音识别
+    participant LLM as 大语言模型
+    participant Functions as 函数调用
+
+    activate VAD
+    Note right of 用户: 说出唤醒词
+    用户->>VAD: 说出命令
+    VAD-->>ASR: 流式传输原始音频数据
+    activate ASR
+    
+    VAD-->>VAD: 检测到静音 (语音结束)
+    deactivate VAD
+    Note right of ASR: 检测到静音后，完成文本转录
+    ASR-->>LLM: 发送转录后的文本
+    deactivate ASR
+
+    activate LLM
+    Note right of LLM: 解析文本，识别意图和参数
+    LLM-->>Functions: 分发 tool_call 指令
+    deactivate LLM
+    
+    activate Functions
+    Note right of Functions: 执行 tool_call
+    Functions-->>用户: 返回字符串格式的执行结果
+    deactivate Functions
+```
 
 1.  **唤醒词检测**
 
