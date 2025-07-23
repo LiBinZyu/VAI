@@ -44,10 +44,41 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 ## How It Works
 
-The system operates in a simple, four-step workflow:
+The system operates in an explicit workflow:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant VAD as Simple VAD
+    participant ASR
+    participant LLM
+    participant Functions
+
+    activate VAD
+    Note right of User: Speaks wake word
+    User->>VAD: Speaking Command
+    VAD-->>ASR: Streams raw audio data
+    activate ASR
+    
+    VAD-->>VAD: Detects silence (end of speech)
+    deactivate VAD
+    Note right of ASR: On silence, finalize transcription
+    ASR-->>LLM: Sends transcribed text
+    deactivate ASR
+
+    activate LLM
+    Note right of LLM: Parses text, identifies intent & parameters
+    LLM-->>Functions: Dispatches tool_call instruction
+    deactivate LLM
+    
+    activate Functions
+    Note right of Functions: Executes tool_call
+    Functions-->>User: Returns execution result as string
+    deactivate Functions
+```
 
 1.  **Wake Word Detection**
-    * The system listens passively for a predefined wake word (e.g., `"Hi there"`).
+    * The system listens passively for a predefined wake word (e.g., `"Assistant"`).
 
 2.  **Speech-to-Text (ASR)**
     * Upon activation, the user's voice command is recorded and sent to the cloud for transcription.
@@ -84,7 +115,7 @@ The system operates in a simple, four-step workflow:
 >🔔Before you begin, ensure you have the following:
 > * **Unity Editor**: 2022.3.47 or newer.
 > * **Windows**: Required for the current wake word implementation.
-> * **Alibaba Cloud Account**: With the BaiLian paraformer and Qwen LLM service enabled, we need dashscope api-key.
+> * **Alibaba Cloud Account**: With the BaiLian paraformer and LLM service enabled, we need dashscope api-key.
 > For instructions on obtaining a key, see the official documentation: [How to obtain an API Key](https://help.aliyun.com/zh/model-studio/get-api-key)
 
 ### Dependencies
@@ -153,7 +184,7 @@ The system operates in a simple, four-step workflow:
 
 1.  **唤醒词检测**
 
-      * 系统被动监听预设的唤醒词（例如，“`Hi there`”）。
+      * 系统被动监听预设的唤醒词（例如，“`小助手`”）。
 
 2.  **语音转文本 (ASR)**
 
@@ -195,7 +226,7 @@ The system operates in a simple, four-step workflow:
 >
 >   * **Unity 编辑器**：2022.3.47 或更高版本。
 >   * **Windows**：当前的唤醒词实现需要此平台。
->   * **阿里云账户**：并已开通百炼的 Paraformer 和Qwen LLM 服务，我们需要 dashscope 的 API-Key。
+>   * **阿里云账户**：并已开通百炼的 Paraformer 和大模型服务，我们需要 dashscope API-Key。
 >     关于如何获取 API-Key，请参阅官方文档：[如何获取 API Key](https://help.aliyun.com/zh/model-studio/get-api-key)
 
 ### 依赖项
