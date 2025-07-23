@@ -46,6 +46,7 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 The system operates in an explicit workflow:
 
+```plantuml
 @startuml
 actor User
 participant "Simple VAD" as VAD
@@ -82,7 +83,7 @@ deactivate Functions
 deactivate VAD
 == VAI.Shutdown ==
 @enduml
-
+```
 
 1.  **Wake Word Detection**
     * The system listens passively for a predefined wake word (e.g., `"Assistant"`).
@@ -189,6 +190,7 @@ deactivate VAD
 
 该系统的工作流程简单，分为以下步骤：
 
+```plantuml
 @startuml
 
 actor 用户 as User
@@ -226,6 +228,7 @@ deactivate Functions
 deactivate VAD
 == VAI.Shutdown ==
 @enduml
+```
 
 1.  **唤醒词检测**
 
