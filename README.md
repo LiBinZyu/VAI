@@ -46,36 +46,43 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 The system operates in an explicit workflow:
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant VAD as Simple VAD
-    participant ASR
-    participant LLM
-    participant Functions
+@startuml
+actor User
+participant "Simple VAD" as VAD
+participant ASR
+participant LLM
+participant "Unity Functions" as Functions
 
-    activate VAD
-    Note right of User: Speaks wake word
-    User->>VAD: Speaking Command
-    VAD-->>ASR: Streams raw audio data
-    activate ASR
-    
-    VAD-->>VAD: Detects silence (end of speech)
-    deactivate VAD
-    Note right of ASR: On silence, finalize transcription
-    ASR-->>LLM: Sends transcribed text
-    deactivate ASR
+== VAI.Startup ==
 
-    activate LLM
-    Note right of LLM: Parses text, identifies intent & parameters
-    LLM-->>Functions: Dispatches tool_call instruction
-    deactivate LLM
-    
-    activate Functions
-    Note right of Functions: Executes tool_call
-    Functions-->>User: Returns execution result as string
-    deactivate Functions
-```
+User -> VAD: Speaking
+hnote over VAD: Detect wake word
+activate VAD
+
+VAD ->> ASR: Streams audio
+
+activate ASR
+ASR -> ASR: Map hot words
+VAD -> VAD: Detects silence
+VAD -> ASR: Close ASR task
+ASR -> LLM: Sends command
+deactivate ASR
+activate LLM
+alt Successful
+LLM -> Functions: Dispatches tool_call
+else Fail
+LLM -> LLM: Save memory \nfor furthur declaration
+end
+deactivate LLM
+
+activate Functions
+Functions -> Functions: Executes tool_call
+Functions -> User: Returns execution result
+deactivate Functions
+deactivate VAD
+== VAI.Shutdown ==
+@enduml
+
 
 1.  **Wake Word Detection**
     * The system listens passively for a predefined wake word (e.g., `"Assistant"`).
@@ -182,36 +189,43 @@ sequenceDiagram
 
 该系统的工作流程简单，分为以下步骤：
 
-```mermaid
-sequenceDiagram
-    participant 用户
-    participant VAD as 简单VAD
-    participant ASR as 语音识别
-    participant LLM as 大语言模型
-    participant Functions as 函数调用
+@startuml
 
-    activate VAD
-    Note right of 用户: 说出唤醒词
-    用户->>VAD: 说出命令
-    VAD-->>ASR: 流式传输原始音频数据
-    activate ASR
-    
-    VAD-->>VAD: 检测到静音 (语音结束)
-    deactivate VAD
-    Note right of ASR: 检测到静音后，完成文本转录
-    ASR-->>LLM: 发送转录后的文本
-    deactivate ASR
+actor 用户 as User
+participant "简单VAD" as VAD
+participant "语音识别" as ASR
+participant "大语言模型" as LLM
+participant "Unity函数" as Functions
 
-    activate LLM
-    Note right of LLM: 解析文本，识别意图和参数
-    LLM-->>Functions: 分发 tool_call 指令
-    deactivate LLM
-    
-    activate Functions
-    Note right of Functions: 执行 tool_call
-    Functions-->>用户: 返回字符串格式的执行结果
-    deactivate Functions
-```
+== VAI.Startup ==
+
+User -> VAD: 开始说话
+hnote over VAD: 检测唤醒词
+activate VAD
+
+VAD ->> ASR: 流式传输音频
+
+activate ASR
+ASR -> ASR: 映射热词
+VAD -> VAD: 检测到静音
+VAD -> ASR: 关闭ASR任务
+ASR -> LLM: 发送指令文本
+deactivate ASR
+activate LLM
+alt 成功情况
+    LLM -> Functions: 分发工具调用 (tool_call)
+else 失败情况
+    LLM -> LLM: 保存记忆\n等待澄清
+end
+deactivate LLM
+
+activate Functions
+Functions -> Functions: 执行工具调用
+Functions -> User: 返回执行结果
+deactivate Functions
+deactivate VAD
+== VAI.Shutdown ==
+@enduml
 
 1.  **唤醒词检测**
 
