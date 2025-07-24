@@ -114,17 +114,17 @@ public class CharFuncCallingList : MonoBehaviour
     }
 
     //测试
-    public string clipdeName;
-    public bool animationTrigger = false;
-    void Update()
-    {
-        if (animationTrigger)
-        {
-            ReplaceCustomAnimMotion(clipdeName);
-            animationTrigger = false;
-        }
-        else return;
-    }
+    // public string clipdeName;
+    // public bool animationTrigger = false;
+    // void Update()
+    // {
+    //     if (animationTrigger)
+    //     {
+    //         ReplaceCustomAnimMotion(clipdeName);
+    //         animationTrigger = false;
+    //     }
+    //     else return;
+    // }
 
     // 支持最多三个blendshape，至少一个，其他两个可以为空字符串。每个带独立weight。
     public string SetBlendShapes(

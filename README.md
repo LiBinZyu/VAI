@@ -98,26 +98,6 @@ deactivate VAD
 3.  **LLM Tool Call Generation**
     * The transcribed text is sent to the LLM, which generates a structured JSON `tool_call` based on the user's intent and predefined functions.
 
-    ```csharp
-    Register(new FunctionMeta
-            {
-                Name = "ChangeObjectColor",
-                Description = "改变物体的颜色",
-                Parameters = new Dictionary<string, ParameterMeta>
-                {
-                    { "objectName", new ParameterMeta { 
-                      Type = "string", 
-                      Description = "物体的名字", 
-                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
-                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
-                },
-                Execute = args =>
-                {
-                    ...
-                }
-            });
-    ```
-
 4.  **Function Execution**
     * Your Unity application receives JSON, parses it, and invokes the corresponding local C# function with the provided parameters.
 
@@ -155,8 +135,28 @@ deactivate VAD
     * Set your API Key as an environment variable and fill the environment variable name in the Inspector.
     * The system will automatically read the API Key from the environment variables.
 
-4.  **Write and configer functions at `FunctionRegistry.cs` and `FuncCallingLists.cs`**
+4.  **Register functions at `FuncRegistryExample`**
+    * Before using VAI, please place all the functions you want to use in a single script. Then, reference this function script in the `FuncRegistryExample` script. In `FuncRegistryExample`, you can register functions via code, or manually add and configure registered functions and their parameter information in the Inspector panel. Both methods will be called by `VAI.LlmController` in the current scene during `Start()`. You can view all registered functions available for voice control in the UI panel. Please ensure that the function names and parameters strictly match their definitions.
     * There are two functions which are to change transform and color for objects at the scene.
+    ```csharp
+    Register(new FunctionMeta
+            {
+                Name = "ChangeObjectColor",
+                Description = "改变物体的颜色",
+                Parameters = new Dictionary<string, ParameterMeta>
+                {
+                    { "objectName", new ParameterMeta { 
+                      Type = "string", 
+                      Description = "物体的名字", 
+                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
+                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
+                },
+                Execute = args =>
+                {
+                    ...
+                }
+            });
+    ```
 
 5.  **Run the Application**
     * Press the `Play` button in the Unity Editor.
@@ -250,28 +250,6 @@ deactivate VAD
 
       * 转录后的文本被发送到 LLM，LLM 会根据用户的意图和预定义的函数生成一个结构化的 JSON `tool_call`。
 
-    <!-- end list -->
-
-    ```csharp
-    Register(new FunctionMeta
-            {
-                Name = "ChangeObjectColor",
-                Description = "改变物体的颜色",
-                Parameters = new Dictionary<string, ParameterMeta>
-                {
-                    { "objectName", new ParameterMeta { 
-                      Type = "string", 
-                      Description = "物体的名字", 
-                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
-                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
-                },
-                Execute = args =>
-                {
-                    ...
-                }
-            });
-    ```
-
 4.  **函数执行**
 
       * 您的 Unity 应用程序接收 JSON，对其进行解析，并使用提供的参数调用相应的本地函数。
@@ -316,9 +294,29 @@ deactivate VAD
       * 将您的 API Key 设置为环境变量，在 Inspector 面板中填写变量名。
       * 系统会自动从环境变量中读取 API Key。
 
-4.  **在 `FunctionRegistry` 和 `FuncCallingLists.cs` 中编写和配置函数**
-
+4.  **在 `FuncRegistryExample` 中配置函数**
+      * 在使用 VAI 之前，请将所有需要用到的函数放在一个脚本中，然后在 `FuncRegistryExample` 脚本中引用该函数脚本。在 `FuncRegistryExample` 中可以通过代码注册函数，或者在 Inspector 面板上手动新增注册函数并填写其参数信息。这两种方式都会在当前场景的 `VAI.LlmController` 的 Start 阶段被调用。您可以在 UI 面板上查看所有已注册、可通过语音控制的函数。请注意函数名和参数要与函数定义严格对应。
       * 示例中提供了两个函数，用于更改场景中物体的变换和颜色。
+      
+      ```csharp
+    Register(new FunctionMeta
+            {
+                Name = "ChangeObjectColor",
+                Description = "改变物体的颜色",
+                Parameters = new Dictionary<string, ParameterMeta>
+                {
+                    { "objectName", new ParameterMeta { 
+                      Type = "string", 
+                      Description = "物体的名字", 
+                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
+                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
+                },
+                Execute = args =>
+                {
+                    ...
+                }
+            });
+    ```
 
 5.  **运行应用程序**
 
