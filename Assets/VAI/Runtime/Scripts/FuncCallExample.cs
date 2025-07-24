@@ -3,89 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
-using ReadyPlayerMe.Samples;
 
 public class FuncCallExample : MonoBehaviour
 {
     public List<GameObject> managedObjects = new List<GameObject>();
     private Dictionary<string, GameObject> objectLookup;
-
-    [System.Serializable]
-    public struct NamedClip
-    {
-        public string name;
-        public AnimationClip clip;
-    }
-
-    public List<NamedClip> namedClips;
-
     // 只支持这些blendshape
     public static FuncCallExample Instance { get; private set; }
-
-    private List<string> blendShapeNames = new List<string>{
-        "mouthOpen",
-        "mouthSmile",
-        "browDownLeft",
-        "browDownRight",
-        "browInnerUp",
-        "browOuterUpLeft",
-        "browOuterUpRight",
-        "eyeSquintLeft",
-        "eyeSquintRight",
-        "eyeWideLeft",
-        "eyeWideRight",
-        "jawForward",
-        "jawLeft",
-        "jawRight",
-        "mouthFrownLeft",
-        "mouthFrownRight",
-        "mouthPucker",
-        "mouthShrugLower",
-        "mouthShrugUpper",
-        "noseSneerLeft",
-        "noseSneerRight",
-        "mouthLowerDownLeft",
-        "mouthLowerDownRight",
-        "mouthLeft",
-        "mouthRight",
-        "eyeLookDownLeft",
-        "eyeLookDownRight",
-        "eyeLookUpLeft",
-        "eyeLookUpRight",
-        "eyeLookInLeft",
-        "eyeLookInRight",
-        "eyeLookOutLeft",
-        "eyeLookOutRight",
-        "cheekPuff",
-        "cheekSquintLeft",
-        "cheekSquintRight",
-        "jawOpen",
-        "mouthClose",
-        "mouthFunnel",
-        "mouthDimpleLeft",
-        "mouthDimpleRight",
-        "mouthStretchLeft",
-        "mouthStretchRight",
-        "mouthRollLower",
-        "mouthRollUpper",
-        "mouthPressLeft",
-        "mouthPressRight",
-        "mouthUpperUpLeft",
-        "mouthUpperUpRight",
-        "mouthSmileLeft",
-        "mouthSmileRight",
-        "tongueOut",
-        "eyeBlinkLeft",
-        "eyeBlinkRight"
-    };
-    
-    private RuntimeAnimatorController animatorController;
-    public ThirdPersonController playerController;
-
-    public SkinnedMeshRenderer targetRenderer;
-
-    public CameraFollow cameraFollow;
-
 
     void Awake()
     {
@@ -99,150 +23,11 @@ public class FuncCallExample : MonoBehaviour
         {
             Instance = this;
         }
-        animatorController = targetRenderer.GetComponent<Animator>().runtimeAnimatorController; 
     }
 
-    private void OnEnable()
-    {
-    }
-    private void OnDisable()
-    {
-        playerController = null;
-        targetRenderer = null;
-    }
     void OnDestroy()
     {
         Instance = null;
-    }
-
-    //测试太阳光
-    // public float timeofday;
-    // public bool timeofday_enabled = false;
-    // void Update()
-    // {
-    //     if (timeofday_enabled)
-    //     {
-    //         SetTimeOfDay(timeofday);
-    //         timeofday_enabled = false;
-    //     }
-    //     else return;
-    // }
-    public string MoveRpmCamera(float distance)
-    {
-        StopAllCoroutines();
-        StartCoroutine(LerpFloat(
-            cameraFollow.cameraDistance, -distance, 0.5f,
-            (currentValue) =>
-            {          // 这个是 onUpdate 回调函数
-                cameraFollow.cameraDistance = currentValue;
-            }
-        ));
-        return $"已移动 {distance} 米。";
-    }
-
-    // 支持最多三个blendshape，至少一个，其他两个可以为空字符串。每个带独立weight。
-    public string SetBlendShapes(
-        string bSName1, float weight1,
-        string bSName2 = null, float weight2 = 0f,
-        string bSName3 = null, float weight3 = 0f)
-    {
-        if (targetRenderer == null)
-        {
-            Debug.LogError("Target SkinnedMeshRenderer is not assigned");
-            return "Target SkinnedMeshRenderer is not assigned";
-        }
-
-        Mesh mesh = targetRenderer.sharedMesh;
-        if (mesh == null)
-        {
-            Debug.LogError("SkinnedMeshRenderer.sharedMesh is null");
-            return "SkinnedMeshRenderer.sharedMesh is null";
-        }
-
-        // Set all blendshapes to 0 first
-        for (int i = 0; i < mesh.blendShapeCount; i++)
-        {
-            targetRenderer.SetBlendShapeWeight(i, 0f);
-        }
-
-        // Helper function to set blendshape if name is not null or empty
-        void SetBS(string name, float w)
-        {
-            if (!string.IsNullOrEmpty(name))
-            {
-                int idx = mesh.GetBlendShapeIndex(name);
-                if (idx == -1)
-                {
-                    Debug.LogError($"Blendshape '{name}' not found on SkinnedMeshRenderer");
-                }
-                else
-                {
-                    targetRenderer.SetBlendShapeWeight(idx, w);
-                }
-            }
-        }
-
-        // Set up to three blendshapes
-        SetBS(bSName1, weight1);
-        SetBS(bSName2, weight2);
-        SetBS(bSName3, weight3);
-        return $"Done.";
-    }
-
-    public string ReplaceCustomAnimMotion(string clipName)
-    {
-        if (animatorController == null)
-        {
-            Debug.LogError("AnimatorController not found");
-            return "AnimatorController not found";
-        }
-        AnimationClip targetClip = null;
-        foreach (var nc in namedClips)
-        {
-            if (nc.name == clipName)
-            {
-                targetClip = nc.clip;
-                break;
-            }
-        }
-        if (targetClip == null)
-        {
-            Debug.LogError($"AnimationClip: {clipName} not found");
-            return $"AnimationClip: {clipName} not found";
-        }
-
-        playerController.StartCustomAnimationSequence(targetClip);
-        return $"Done.";
-    }
-
-    public string SetExpressionHappy()
-    {
-        SetBlendShapes("mouthSmile", 1f, "eyeWideLeft", 0.5f, "eyeWideRight", 0.2f);
-        return "";
-    }
-
-    public string SetExpressionSad()
-    {
-        SetBlendShapes("mouthFrownLeft", 1f, "mouthFrownRight", 0.3f, "eyeSquintRight", 0.3f);
-        return "";
-    }
-
-    public string SetExpressionAngry()
-    {
-        SetBlendShapes("cheekPuff", 1f, "browDownLeft", 0.8f, "browDownRight", 0.8f);
-        return "";
-    }
-
-    public string SetExpressionSurprised()
-    {
-        SetBlendShapes("mouthOpen", 1f, "eyeWideLeft", 0.4f, "eyeWideRight", 0.4f);
-        return "";
-    }
-
-    public string SetExpressionDisgusted()
-    {
-        SetBlendShapes("mouthPucker", 1f, "eyeSquintLeft", 1f, "eyeSquintRight", 1f);
-        return "";
     }
 
     public string ModifyTransform(string objectName, string transformType, float number)
@@ -312,40 +97,6 @@ public class FuncCallExample : MonoBehaviour
         return $"Ok,  '{objectName}' 的颜色已更改为 {hexColor}。";
     }
 
-    public Light sceneLight; // 请确保在Inspector中赋值
-
-    private Vector3 sunPathOrientation = new Vector3(0f, -30f, 0f);
-
-    public string SetTimeOfDay(float timeOfDay)
-    {
-        // Clamp timeOfDay to [0, 24]
-        timeOfDay = Mathf.Clamp(timeOfDay, 0f, 24f);
-
-        StopAllCoroutines();
-
-        StartCoroutine(AnimateSun(timeOfDay, 2.0f));
-
-        // --- 光照强度逻辑 (此部分保持不变) ---
-        float targetX = Mathf.Lerp(-20f, 200f, timeOfDay / 24f);
-        float thisIntensity = sceneLight.intensity;
-        if (targetX <= 180f && targetX >= 0f)
-        {
-            // 0到180，intensity 1
-            StartCoroutine(LerpFloat(thisIntensity, 1f, 2f, t =>
-            {
-                sceneLight.intensity = t;
-            }));
-        }
-        else
-        {
-            StartCoroutine(LerpFloat(thisIntensity, 0f, 2f, t =>
-            {
-                sceneLight.intensity = t;
-            }));
-        }
-
-        return $"已将时间设置为 {timeOfDay:0.##} 点";
-    }
     private IEnumerator MoveCamera(Vector3 direction, float animDuration)
     {
         Camera mainCamera = Camera.main;
@@ -438,28 +189,6 @@ public class FuncCallExample : MonoBehaviour
             yield return null;
         }
         targetTransform.localScale = targetScale;
-    }
-    private IEnumerator AnimateSun(float targetTimeOfDay, float duration)
-    {
-        float time = 0f;
-        Quaternion startRotation = sceneLight.transform.rotation;
-        float targetAngleX = Mathf.Lerp(-20f, 200f, targetTimeOfDay / 24f);
-
-        Quaternion targetRotation = Quaternion.Euler(targetAngleX, sunPathOrientation.y, sunPathOrientation.z);
-
-        while (time < duration)
-        {
-            float t = time / duration;
-            t = t * t * (3f - 2f * t);
-
-            // Quaternion.Slerp 的使用是正确的，保持不变
-            sceneLight.transform.rotation = Quaternion.Slerp(startRotation, targetRotation, t);
-
-            time += Time.deltaTime;
-            yield return null;
-        }
-
-        sceneLight.transform.rotation = targetRotation;
     }
 
 }

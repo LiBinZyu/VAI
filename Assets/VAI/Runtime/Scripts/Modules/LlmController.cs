@@ -124,8 +124,9 @@ namespace VAI
         [Tooltip("Enable legacy function call format")]
         public bool enableLegacyFunctionCalls = true;
 
-        public FunctionRegistry functionRegistry { get; private set; } = new FunctionRegistry();
-
+        public static LlmController Instance { get; private set; }
+        public FunctionRegistry functionRegistry { get; private set; }
+        private List<Tool> _cachedToolDefinitions;
 
 
         // Manager接口事件
@@ -136,33 +137,55 @@ namespace VAI
         private bool _isProcessing = false;
         private static readonly HttpClient _httpClient = new HttpClient();
         private CancellationTokenSource _currentRequestCts;
-        private List<Tool> _cachedToolDefinitions;
         
         // 实际使用的API Key
         private string _effectiveApiKey;
 
         #region Unity lifecycle
 
-        void Start()
+        void Awake()
         {
-            InitializeHttpClient();
-
-            if (string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(apiKey)))
+            if (Instance == null)
             {
-                throw new InvalidOperationException("API Key not found, plz add DASHSCOPE_API_KEY to environment variables");
+                Instance = this;
+                DontDestroyOnLoad(gameObject); // 核心：使其在场景切换时不被销毁
+
+                // 初始化 FunctionRegistry
+                functionRegistry = new FunctionRegistry();
+                InitializeHttpClient();
+                
+                // 检查 API Key
+                if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(apiKey)))
+                {
+                    Debug.LogError("API Key not found, please add DASHSCOPE_API_KEY to environment variables or set it in the inspector.");
+                }
+                else
+                {
+                    _effectiveApiKey = System.Environment.GetEnvironmentVariable(apiKey);
+                }
+            
+                Debug.Log("LLM Controller Initialized as Singleton.");
             }
             else
             {
-                _effectiveApiKey = System.Environment.GetEnvironmentVariable(apiKey);
+                Destroy(gameObject); // 如果已有实例，则销毁此重复实例
             }
-            
-            Debug.Log("LLM控制器初始化完成");
         }
 
         void OnDestroy()
         {
             _currentRequestCts?.Cancel();
             _currentRequestCts?.Dispose();
+        }
+
+        public void ClearFunctionRegistry()
+        {
+            if (functionRegistry != null)
+            {
+                functionRegistry.Clear();
+                _cachedToolDefinitions = null; // 使工具定义缓存失效
+                Debug.Log("Function registry and tool cache have been cleared.");
+            }
         }
 
         private void InitializeHttpClient()
@@ -433,7 +456,7 @@ namespace VAI
                                 kv => kv.Key,
                                 kv => new FunctionParameter
                                 {
-                                    type = kv.Value.Type,
+                                    type = kv.Value.Type.ToString().ToLower(),
                                     description = kv.Value.Description,
                                     @enum = kv.Value.Enum
                                 }

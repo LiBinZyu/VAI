@@ -174,8 +174,8 @@ namespace VAI
                 ConfidenceLevel.High => 0.9f,
                 _ => 0.1f
             };
-            UpdateStatusText();
             TransitionToState(AssistantState.Listening);
+            UpdateStatusText();
         }
 
         private void HandleSilenceDetected(bool isDuringWakeBufferTime)

@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
-using ReadyPlayerMe.Samples;
+using System.Threading.Tasks;
 
 public class CharFuncCallingList : MonoBehaviour
 {
@@ -78,13 +78,10 @@ public class CharFuncCallingList : MonoBehaviour
         "eyeBlinkLeft",
         "eyeBlinkRight"
     };
-    
-    private RuntimeAnimatorController animatorController;
-    public ThirdPersonController playerController;
 
     public SkinnedMeshRenderer targetRenderer;
-
-    public CameraFollow cameraFollow;
+    public AnimationClip placeholderAnim;
+    private Animator animator;
 
 
     void Awake()
@@ -99,7 +96,9 @@ public class CharFuncCallingList : MonoBehaviour
         {
             Instance = this;
         }
-        animatorController = targetRenderer.GetComponent<Animator>().runtimeAnimatorController; 
+        animator = targetRenderer.GetComponentInParent<Animator>();
+        overrideController = new AnimatorOverrideController(animator.runtimeAnimatorController);
+        animator.runtimeAnimatorController = overrideController;
     }
 
     private void OnEnable()
@@ -107,7 +106,6 @@ public class CharFuncCallingList : MonoBehaviour
     }
     private void OnDisable()
     {
-        playerController = null;
         targetRenderer = null;
     }
     void OnDestroy()
@@ -115,29 +113,17 @@ public class CharFuncCallingList : MonoBehaviour
         Instance = null;
     }
 
-    //测试太阳光
-    // public float timeofday;
-    // public bool timeofday_enabled = false;
-    // void Update()
-    // {
-    //     if (timeofday_enabled)
-    //     {
-    //         SetTimeOfDay(timeofday);
-    //         timeofday_enabled = false;
-    //     }
-    //     else return;
-    // }
-    public string MoveRpmCamera(float distance)
+    //测试
+    public string clipdeName;
+    public bool animationTrigger = false;
+    void Update()
     {
-        StopAllCoroutines();
-        StartCoroutine(LerpFloat(
-            cameraFollow.cameraDistance, -distance, 0.5f,
-            (currentValue) =>
-            {          // 这个是 onUpdate 回调函数
-                cameraFollow.cameraDistance = currentValue;
-            }
-        ));
-        return $"已移动 {distance} 米。";
+        if (animationTrigger)
+        {
+            ReplaceCustomAnimMotion(clipdeName);
+            animationTrigger = false;
+        }
+        else return;
     }
 
     // 支持最多三个blendshape，至少一个，其他两个可以为空字符串。每个带独立weight。
@@ -191,11 +177,6 @@ public class CharFuncCallingList : MonoBehaviour
 
     public string ReplaceCustomAnimMotion(string clipName)
     {
-        if (animatorController == null)
-        {
-            Debug.LogError("AnimatorController not found");
-            return "AnimatorController not found";
-        }
         AnimationClip targetClip = null;
         foreach (var nc in namedClips)
         {
@@ -211,8 +192,64 @@ public class CharFuncCallingList : MonoBehaviour
             return $"AnimationClip: {clipName} not found";
         }
 
-        playerController.StartCustomAnimationSequence(targetClip);
+        PlayCustomAnimAndWait(targetClip);
         return $"Done.";
+    }
+    private AnimatorOverrideController overrideController;
+    private bool isPlayingCustomAnim = false;
+    private static readonly int EnterCustomAnimHash = Animator.StringToHash("EnterCustomAnim");
+    private static readonly int ExitCustomAnimHash = Animator.StringToHash("ExitCustomAnim");
+
+    private async Task PlayCustomAnimAndWait(AnimationClip customClip)
+    {
+        if (isPlayingCustomAnim)
+        {
+            Debug.LogWarning("Cannot play new animation, one is already in progress.");
+            return;
+        }
+        if (placeholderAnim == null)
+        {
+            Debug.LogError("PlaceholderAnim is not assigned.");
+            return;
+        }
+
+        const string stateToWaitFor = "CustomAnim";
+        const int layerIndex = 0;
+
+        try
+        {
+            isPlayingCustomAnim = true;
+            // 1. Override the animation
+            overrideController[placeholderAnim.name] = customClip;
+
+            // 2. Trigger the state transition
+            animator.SetTrigger(EnterCustomAnimHash);
+
+            // 3. Wait until the animator has entered the target state
+            await Task.Yield(); // Wait one frame for the transition to begin
+            while (!animator.GetCurrentAnimatorStateInfo(layerIndex).IsName(stateToWaitFor))
+            {
+                await Task.Yield();
+            }
+
+            // 4. Wait for the animation to complete
+            while (animator.GetCurrentAnimatorStateInfo(layerIndex).normalizedTime < 1.0f)
+            {
+                // Ensure we are still in the same state, in case an interrupt occurs
+                if (!animator.GetCurrentAnimatorStateInfo(layerIndex).IsName(stateToWaitFor)) break;
+                await Task.Yield();
+            }
+
+            // 5. Trigger the exit transition from the state
+            animator.SetTrigger(ExitCustomAnimHash);
+        }
+        finally
+        {
+            // 6. Restore the original animation and reset the flag
+            // This 'finally' block ensures restoration even if the task is cancelled or an error occurs.
+            isPlayingCustomAnim = false;
+        }
+        overrideController[placeholderAnim.name] = placeholderAnim;
     }
 
     public string SetExpressionHappy()
