@@ -5,66 +5,18 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine.UI;
 
-// 这个组件负责为当前场景向LlmController注册特定的函数
+// This component registers specific functions to LlmController for the current scene
 public class FuncRegistryExample : MonoBehaviour
 {
     //public LlmController llmController;
     public FuncCallExample functionImplementations;
+    [Header("Configuration")]
+    [Tooltip("Json file that contains the function definitions for NLU and LLM")]
+    public TextAsset functionConfigFile;
 
-    [Header("Optional")]
-    [Tooltip("You can either register functions in the inspector or in the code")]
-    public List<SerializableFunctionMeta> userRegisteredFunctions;
+    [Header("[Optional] Print to")]
     [Tooltip("Optional, display all functions in the inspector")]
     public Text functionListText;
-
-    private void RegisterSceneFunctions()
-    {
-        var registry = LlmController.Instance.functionRegistry;
-
-        // --- 在下面定义和注册所有此场景需要的函数 ---
-        
-        registry.Register(new FunctionMeta
-        {
-            Name = "ModifyTransform",
-            Description = "修改物体的变换属性，包括移动、旋转和缩放。",
-            Parameters = new Dictionary<string, ParameterMeta>
-            {
-                { "objectName", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "物体的名字", Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
-                { "transformType", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "transform的维度", Enum = new List<string> { "moveleft", "moveright", "movebackward", "moveforward", "moveup", "movedown", "pitch", "yaw", "roll", "scale" } } },
-                { "number", new ParameterMeta { Type = ParameterMeta.ParamType.Number, Description = "给物体transform某维度改变的数值，不能出现负数。" } }
-            },
-            Execute = args =>
-            {
-                var objectName = args["objectName"].ToString();
-                var transformType = args["transformType"].ToString();
-                var number = Convert.ToSingle(args["number"]);
-                return functionImplementations.ModifyTransform(objectName, transformType, number);
-            }
-        });
-        // --- 继续注册新的函数 ---
-
-        //// 该函数已在inspector中注册. This function has been registered in the inspector
-        // registry.Register(new FunctionMeta
-        // {
-        //     Name = "ChangeObjectColor",
-        //     Description = "改变物体的颜色。",
-        //     Parameters = new Dictionary<string, ParameterMeta>
-        //     {
-        //         { "objectName", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "物体的名字", Enum = new List<string> { "cube", "sphere", "capsule" } } },
-        //         { "hexColor", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "16进制颜色代码" } }
-        //     },
-        //     Execute = args =>
-        //     {
-        //         var objectName = args["objectName"].ToString();
-        //         var hexColor = args["hexColor"].ToString();
-        //         // 调用函数
-        //         return functionImplementations.ChangeObjectColor(objectName, hexColor);
-        //     }
-        // });
-
-        // --- 注册在 Inspector 中定义的函数 ---
-        RegisterFunctionsFromInspector(registry);
-    }
     void Start()
     {
         if (LlmController.Instance == null)
@@ -77,12 +29,21 @@ public class FuncRegistryExample : MonoBehaviour
             Debug.LogError("Function Implementations component is not assigned!", this);
             return;
         }
+        if (functionConfigFile == null)
+        {
+            Debug.LogError("Function Config File (JSON) is not assigned!", this);
+            return;
+        }
 
-        // 清理之前场景或脚本注册的所有函数
+        // clear all functions registered by this script at last time
         LlmController.Instance.ClearFunctionRegistry();
-        RegisterSceneFunctions();
+        // register functions from json file, recommended
+        LlmController.Instance.functionRegistry.RegisterFunctionsFromJson(functionConfigFile, functionImplementations);
 
-        //更新UI
+        // Legacy way to register functions in this script, not recommended
+        // RegisterSceneFunctions();
+
+        // update and show function list in runtime UI
         if (functionListText)
         {
             functionListText.text = LlmController.Instance.functionRegistry.GetAllFunctionsAsFormattedString();
@@ -93,7 +54,7 @@ public class FuncRegistryExample : MonoBehaviour
     {
         if (LlmController.Instance != null)
         {
-            // 清理本脚本注册的函数
+            // clear all functions registered by this script at last time
             LlmController.Instance.ClearFunctionRegistry();
             Debug.Log($"Functions from {gameObject.name} have been unregistered.", this);
             // if (functionListText)
@@ -103,6 +64,9 @@ public class FuncRegistryExample : MonoBehaviour
         }
     }
 
+    /* // Depricated method RegisterFunctionsFromInspector
+    [Tooltip("You can either register functions in the inspector or in the json")]
+    public List<SerializableFunctionMeta> userRegisteredFunctions;
     private void RegisterFunctionsFromInspector(FunctionRegistry registry)
     {
         foreach (var sFunc in userRegisteredFunctions)
@@ -119,8 +83,8 @@ public class FuncRegistryExample : MonoBehaviour
             {
                 if (string.IsNullOrEmpty(sParam.Name))
                 {
-                     Debug.LogWarning($"A parameter in function '{sFunc.Name}' has no name and will be skipped.");
-                     continue;
+                    Debug.LogWarning($"A parameter in function '{sFunc.Name}' has no name and will be skipped.");
+                    continue;
                 }
                 parameters[sParam.Name] = new ParameterMeta
                 {
@@ -197,4 +161,56 @@ public class FuncRegistryExample : MonoBehaviour
             registry.Register(meta);
         }
     }
+    */
+
+    /* // Legacy way to register functions by script writing, deprecated
+    private void RegisterSceneFunctions()
+    {
+        var registry = LlmController.Instance.functionRegistry;
+
+        // --- 在下面定义和注册所有此场景需要的函数 ---
+
+        registry.Register(new FunctionMeta
+        {
+            Name = "ModifyTransform",
+            Description = "修改物体的变换属性，包括移动、旋转和缩放。",
+            Parameters = new Dictionary<string, ParameterMeta>
+            {
+                { "objectName", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "物体的名字", Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
+                { "transformType", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "transform的维度", Enum = new List<string> { "moveleft", "moveright", "movebackward", "moveforward", "moveup", "movedown", "pitch", "yaw", "roll", "scale" } } },
+                { "number", new ParameterMeta { Type = ParameterMeta.ParamType.Number, Description = "给物体transform某维度改变的数值，不能出现负数。" } }
+            },
+            Execute = args =>
+            {
+                var objectName = args["objectName"].ToString();
+                var transformType = args["transformType"].ToString();
+                var number = Convert.ToSingle(args["number"]);
+                return functionImplementations.ModifyTransform(objectName, transformType, number);
+            }
+        });
+        // --- 继续注册新的函数 ---
+
+        //// 该函数已在inspector中注册. This function has been registered in the inspector
+        // registry.Register(new FunctionMeta
+        // {
+        //     Name = "ChangeObjectColor",
+        //     Description = "改变物体的颜色。",
+        //     Parameters = new Dictionary<string, ParameterMeta>
+        //     {
+        //         { "objectName", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "物体的名字", Enum = new List<string> { "cube", "sphere", "capsule" } } },
+        //         { "hexColor", new ParameterMeta { Type = ParameterMeta.ParamType.String, Description = "16进制颜色代码" } }
+        //     },
+        //     Execute = args =>
+        //     {
+        //         var objectName = args["objectName"].ToString();
+        //         var hexColor = args["hexColor"].ToString();
+        //         // 调用函数
+        //         return functionImplementations.ChangeObjectColor(objectName, hexColor);
+        //     }
+        // });
+
+        // --- 注册在 Inspector 中定义的函数 ---
+        RegisterFunctionsFromInspector(registry);
+    }
+    */
 }

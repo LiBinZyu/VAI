@@ -43,7 +43,7 @@ public class VaiSoundPlayer : MonoBehaviour
             audioSource.PlayOneShot(idleSound);
         }
     }
-    
+
     public void PlayListeningSound()
     {
         if (listeningForCommandSound != null)

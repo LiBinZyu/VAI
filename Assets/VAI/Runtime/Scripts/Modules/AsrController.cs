@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters; // Required for StringEnumConverter
 using NativeWebSocket;
 
 namespace VAI
@@ -40,11 +41,60 @@ namespace VAI
     [System.Serializable]
     public class Parameters
     {
+        [Tooltip("Audio format.")]
         public string format = "wav";
+        [Tooltip("Audio sample rate.")]
         public int sample_rate = 16000;
-        public bool disfluency_removal_enabled = false;
+
+        [Tooltip("Optional vocabulary id for custom hot words.")]
         public string vocabulary_id;
+
+        public enum SupportedLanguage
+        {
+            [InspectorName("zh (普通话、上海话、吴语、闽南语、东北话、甘肃话、贵州话、河南话、湖北话、湖南话、江西话、宁夏话、山西话、陕西话、山东话、四川话、天津话、云南话、粤语)")]
+            zh,
+            [InspectorName("en (English)")]
+            en,
+            [InspectorName("ja (Japanese)")]
+            ja,
+            [InspectorName("yue (廣東話)")]
+            yue,
+            [InspectorName("ko (Korean)")]
+            ko,
+            [InspectorName("de (German)")]
+            de,
+            [InspectorName("fr (French)")]
+            fr,
+            [InspectorName("ru (Russian)")]
+            ru
+        }
+
+        [Tooltip("Specifies the recognition language to improve accuracy.")]
+        public List<SupportedLanguage> language_hints = new List<SupportedLanguage>();
+
+        [Tooltip("Enable semantic punctuation. If false, VAD-based punctuation is used.")]
+        public bool semantic_punctuation_enabled = false;
+
+        [Tooltip("Prevents VAD from cutting sentences too long. Only effective when semantic_punctuation_enabled is false.")]
+        public bool multi_threshold_mode_enabled = false;
+
+        [Tooltip("VAD silence duration threshold in milliseconds (200-6000). Only effective when semantic_punctuation_enabled is false.")]
+        [Range(200, 6000)]
+        public int max_sentence_silence = 800;
+
+        [Tooltip("Filters out disfluent words like 'um', 'uh', etc.")]
+        public bool disfluency_removal_enabled = true;
+
+        [Tooltip("Automatically adds punctuation to the recognition results.")]
+        public bool punctuation_prediction_enabled = true;
+
+        [Tooltip("Keeps the connection alive during long periods of silence by sending silent audio.")]
+        public bool heartbeat = false;
+
+        [Tooltip("Enables Inverse Text Normalization, converting Chinese numbers to Arabic numerals.")]
+        public bool inverse_text_normalization_enabled = true;
     }
+
 
     [System.Serializable]
     public class Input { }
@@ -65,22 +115,23 @@ namespace VAI
     }
 
     [System.Serializable]
-    public class RecognitionResponse 
-    { 
-        public ResponseHeader header; 
-        public ResponsePayload payload; 
+    public class RecognitionResponse
+    {
+        public ResponseHeader header;
+        public ResponsePayload payload;
+    }
+
+
+    [System.Serializable]
+    public class ResponsePayload
+    {
+        public Output output;
     }
 
     [System.Serializable]
-    public class ResponsePayload 
-    { 
-        public Output output; 
-    }
-
-    [System.Serializable]
-    public class Output 
-    { 
-        public Sentence sentence; 
+    public class Output
+    {
+        public Sentence sentence;
     }
 
     [System.Serializable]
@@ -97,64 +148,68 @@ namespace VAI
         public long? begin_time;
         public long? end_time;//aliyun may returns end_time as null
         public Word[] words;
+        public bool sentence_end;
     }
 
     public class AsrController : MonoBehaviour
     {
-        [Header("Api")]
-        [Tooltip("Aliyun DashScope API Key, leave empty to use environment variable DASHSCOPE_API_KEY")]
+        [Header("API Configuration")]
+        [Tooltip("Aliyun DashScope API Key. Uses environment variable DASHSCOPE_API_KEY if empty.")]
         public string apiKey = "DASHSCOPE_API_KEY";
-        [Tooltip("Optional vocabulary id for custom hot words")]
-        public string VocabularyId;
-        
+
+        [Header("ASR Parameters")]
+        [Tooltip("Fine-tune the speech recognition parameters.")]
+        public Parameters asrParameters = new Parameters();
+
         [Header("VAD script")]
         [Tooltip("VAD script")]
         public VadWakeWordDetect vadModule;
 
-        // Manager接口事件
-        public event Action<string> OnRecognitionStreaming;
+        // Manager interface events
+        public event Action<Sentence> OnRecognitionStreaming;
         public event Action<string> Error;
 
-        // 私有状态
+        // Private state
         private WebSocket _websocket;
         private string _microphoneDevice;
         private AudioClip _recordedClip;
-        
-        // 任务控制
+
+        // Task control
         private CancellationTokenSource _currentTaskCts;
         private bool _isTaskStarted;
         private bool _isTaskFinished;
         private bool _isProcessing = false;
-        
-        // 识别结果
+
+        // Recognition result
         private string _lastFinalTranscript = "";
-        
-        // 实际使用的API Key
+
+        // Effective API Key
         private string _effectiveApiKey;
 
-        #region Manager接口实现
+
+        #region Manager Interface Implementation
 
         public void StartRecognition()
         {
             if (_isProcessing)
             {
-                Debug.LogWarning("ASR正在处理中，请勿重复启动");
+                Debug.LogWarning("ASR is already processing, please do not start again.");
                 return;
             }
 
-            Debug.Log("ASR: 开始识别");
+            Debug.Log("ASR: Starting recognition");
             _ = StartStreamingAsync();
         }
 
         public void StopRecognition()
         {
-            Debug.Log("ASR: 停止识别");
+            Debug.Log("ASR: Stopping recognition");
             _currentTaskCts?.Cancel();
         }
 
         #endregion
 
-        #region 核心ASR逻辑
+        #region Core ASR Logic
 
         private async Task StartStreamingAsync()
         {
@@ -168,11 +223,11 @@ namespace VAI
             }
             catch (OperationCanceledException)
             {
-                Debug.Log("ASR任务被取消");
+                Debug.Log("ASR task was canceled.");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"ASR任务失败: {ex.Message}");
+                Debug.LogError($"ASR task failed: {ex.Message}");
                 var errorMsg = FormatUserFriendlyError(ex);
                 UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke(errorMsg));
             }
@@ -185,66 +240,66 @@ namespace VAI
 
         private async Task ExecuteRecognitionPipeline(CancellationToken cancellationToken)
         {
-            // 1. 验证和初始化
+            // 1. Validate and Initialize
             await ValidateAndInitialize(cancellationToken);
 
-            // 2. 建立WebSocket连接
+            // 2. Establish WebSocket Connection
             await EstablishWebSocketConnection(cancellationToken);
 
-            // 3. 启动ASR任务
+            // 3. Start ASR Task
             string taskId = System.Guid.NewGuid().ToString("N");
             await StartAsrTask(taskId, cancellationToken);
 
-            // 4. 流式发送音频数据
+            // 4. Stream Audio Data
             await StreamAudioData(cancellationToken);
 
-            // 5. 完成任务并等待最终结果
+            // 5. Finish Task and Wait for Final Result
             await FinishAsrTask(taskId, cancellationToken);
         }
 
         private async Task ValidateAndInitialize(CancellationToken cancellationToken)
         {
-            // 重置状态
+            // Reset state
             _lastFinalTranscript = "";
             _isTaskStarted = false;
             _isTaskFinished = false;
-            
+
             if (string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(apiKey)))
             {
-                throw new InvalidOperationException("API Key not found, plz add DASHSCOPE_API_KEY to environment variables");
+                throw new InvalidOperationException("API Key not found, please add DASHSCOPE_API_KEY to environment variables");
             }
             else
             {
                 _effectiveApiKey = System.Environment.GetEnvironmentVariable(apiKey);
             }
-            
-            // 验证麦克风
+
+            // Validate microphone
             if (vadModule?.MicrophoneClip == null || !Microphone.IsRecording(vadModule.MicrophoneDevice))
             {
-                throw new InvalidOperationException("麦克风设备不可用");
+                throw new InvalidOperationException("Microphone device is not available.");
             }
-            
+
             _recordedClip = vadModule.MicrophoneClip;
             _microphoneDevice = vadModule.MicrophoneDevice;
-            
-            Debug.Log("ASR初始化验证通过");
+
+            Debug.Log("ASR initialization validation passed.");
         }
 
         private async Task EstablishWebSocketConnection(CancellationToken cancellationToken)
         {
             string url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
-            var headers = new Dictionary<string, string> 
-            { 
-                { "Authorization", $"Bearer {_effectiveApiKey}" }, 
-                { "X-DashScope-DataInspection", "enable" } 
+            var headers = new Dictionary<string, string>
+            {
+                { "Authorization", $"Bearer {_effectiveApiKey}" },
+                { "X-DashScope-DataInspection", "enable" }
             };
-            
+
             _websocket = new WebSocket(url, headers);
             ConfigureWebSocketEvents();
-            
+
             _websocket.Connect();
-            
-            // 等待连接建立（最多10秒）
+
+            // Wait for connection (max 10 seconds)
             float timeout = 10f;
             while (_websocket.State != WebSocketState.Open && timeout > 0)
             {
@@ -252,81 +307,111 @@ namespace VAI
                 await Task.Delay(100, cancellationToken);
                 timeout -= 0.1f;
             }
-            
+
             if (_websocket.State != WebSocketState.Open)
             {
-                throw new TimeoutException("WebSocket连接超时");
+                throw new TimeoutException("WebSocket connection timed out.");
             }
-            
-            Debug.Log("WebSocket连接建立成功");
+
+            Debug.Log("WebSocket connection established successfully.");
         }
+
+
 
         private void ConfigureWebSocketEvents()
         {
-            _websocket.OnOpen += () => Debug.Log("WebSocket连接打开");
-            _websocket.OnClose += (e) => Debug.Log($"WebSocket连接关闭: {e}");
-            _websocket.OnError += (e) => 
-            { 
-                Debug.LogError($"WebSocket错误: {e}"); 
-                // This could possibly caused by WRONG API KEY!
-                UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke("网络连接失败"));
-                _isTaskFinished = true; 
+            _websocket.OnOpen += () => Debug.Log("WebSocket connection opened.");
+            _websocket.OnClose += (e) => Debug.Log($"WebSocket connection closed: {e}");
+            _websocket.OnError += (e) =>
+            {
+                Debug.LogError($"WebSocket error: {e}");
+                // This could possibly be caused by a WRONG API KEY!
+                UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke("Network connection failed."));
+                _isTaskFinished = true;
             };
             _websocket.OnMessage += HandleWebSocketMessage;
         }
 
         private async Task StartAsrTask(string taskId, CancellationToken cancellationToken)
         {
-            var parameters = new Parameters();
-            if (!string.IsNullOrEmpty(VocabularyId))
+            // We need to manually add the 'format' and 'sample_rate' to the parameters object
+            // because they are not part of the 'asrParameters' from the inspector.
+            var payloadParams = new
             {
-                parameters.vocabulary_id = VocabularyId;
-            }
-            
-            var request = new TaskRequest
-            {
-                header = new Header { action = "run-task", task_id = taskId },
-                payload = new Payload { parameters = parameters }
+                format = "pcm",
+                sample_rate = 16000,
+                vocabulary_id = asrParameters.vocabulary_id,
+                language_hints = asrParameters.language_hints,
+                semantic_punctuation_enabled = asrParameters.semantic_punctuation_enabled,
+                multi_threshold_mode_enabled = asrParameters.multi_threshold_mode_enabled,
+                max_sentence_silence = asrParameters.max_sentence_silence,
+                disfluency_removal_enabled = asrParameters.disfluency_removal_enabled,
+                punctuation_prediction_enabled = asrParameters.punctuation_prediction_enabled,
+                heartbeat = asrParameters.heartbeat,
+                inverse_text_normalization_enabled = asrParameters.inverse_text_normalization_enabled,
             };
-            
-            string json = JsonConvert.SerializeObject(request);
+
+            var request = new
+            {
+                header = new { action = "run-task", task_id = taskId, streaming = "duplex" },
+                payload = new
+                {
+                    task_group = "audio",
+                    task = "asr",
+                    function = "recognition",
+                    model = "paraformer-realtime-v2",
+                    parameters = payloadParams,
+                    input = new { }
+                }
+            };
+
+            var serializerSettings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                Converters = new List<JsonConverter> { new StringEnumConverter() }
+            };
+            string json = JsonConvert.SerializeObject(request, Formatting.Indented, serializerSettings);
+
+            // *** DEBUG LOG TO VERIFY PARAMETERS ***
+            Debug.Log($"[ASR] Sending run-task command:\n{json}");
+
             await _websocket.SendText(json);
-            
-            // 等待任务启动确认
-            await WaitForCondition(() => _isTaskStarted, 10f, "等待任务启动", cancellationToken);
-            Debug.Log("ASR任务启动成功");
+
+            await WaitForCondition(() => _isTaskStarted, 10f, "Waiting for task to start", cancellationToken);
+            Debug.Log("ASR task started successfully.");
         }
+
 
         private async Task StreamAudioData(CancellationToken cancellationToken)
         {
-            Debug.Log("开始流式发送音频数据");
+            Debug.Log("Starting to stream audio data.");
             int lastPosition = Microphone.GetPosition(_microphoneDevice);
             const int minChunkSize = 1024;
-            
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 int currentPosition = Microphone.GetPosition(_microphoneDevice);
                 if (currentPosition != lastPosition)
                 {
                     int length = CalculateAudioBufferLength(currentPosition, lastPosition);
-                    
+
                     if (length >= minChunkSize)
                     {
                         await SendAudioChunk(lastPosition, length, cancellationToken);
                         lastPosition = currentPosition;
                     }
                 }
-                
+
                 await Task.Delay(50, cancellationToken);
             }
-            
-            Debug.Log("音频数据流发送完成");
+
+            Debug.Log("Audio data streaming finished.");
         }
 
         private int CalculateAudioBufferLength(int currentPosition, int lastPosition)
         {
-            return (currentPosition > lastPosition) 
-                ? (currentPosition - lastPosition) 
+            return (currentPosition > lastPosition)
+                ? (currentPosition - lastPosition)
                 : (_recordedClip.samples - lastPosition + currentPosition);
         }
 
@@ -335,7 +420,7 @@ namespace VAI
             float[] samples = new float[length];
             _recordedClip.GetData(samples, startPosition);
             byte[] pcmData = ConvertSamplesToPcmBytes(samples);
-            
+
             if (_websocket.State == WebSocketState.Open)
             {
                 await _websocket.Send(pcmData);
@@ -344,32 +429,38 @@ namespace VAI
 
         private async Task FinishAsrTask(string taskId, CancellationToken cancellationToken)
         {
-            var request = new TaskRequest
+            var request = new
             {
-                header = new Header { action = "finish-task", task_id = taskId }
+                header = new
+                {
+                    action = "finish-task",
+                    task_id = taskId,
+                    streaming = "duplex"
+                },
+                payload = new
+                {
+                    input = new { }
+                }
             };
-            
+
+
             string json = JsonConvert.SerializeObject(request);
             await _websocket.SendText(json);
-            
-            // 等待任务完成
-            await WaitForCondition(() => _isTaskFinished, vadModule.maxRecordingTime, "等待任务完成", cancellationToken);
-            Debug.Log("ASR任务完成");
+
+            // Wait for the task to finish
+            await WaitForCondition(() => _isTaskFinished, vadModule.maxRecordingTime, "Waiting for task to finish", cancellationToken);
+            Debug.Log("ASR task finished.");
         }
 
         #endregion
 
-        #region WebSocket消息处理
+        #region WebSocket Message Handling
 
         private void HandleWebSocketMessage(byte[] bytes)
         {
             try
             {
                 var message = System.Text.Encoding.UTF8.GetString(bytes);
-                
-                #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                Debug.Log($"[ASR] {message}");
-                #endif
 
                 var baseResponse = JsonConvert.DeserializeObject<BaseResponse>(message);
                 if (baseResponse?.header == null) return;
@@ -378,7 +469,7 @@ namespace VAI
                 {
                     case "task-started":
                         _isTaskStarted = true;
-                        Debug.Log("ASR任务已启动");
+                        Debug.Log("ASR task has started.");
                         break;
 
                     case "result-generated":
@@ -392,15 +483,15 @@ namespace VAI
 
                     case "task-failed":
                         _isTaskFinished = true;
-                        string errorMessage = baseResponse.header.error_message ?? "ASR任务失败";
-                        Debug.LogError($"ASR任务失败: {errorMessage}");
+                        string errorMessage = baseResponse.header.error_message ?? "ASR task failed";
+                        Debug.LogError($"ASR task failed: {errorMessage}");
                         UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke(errorMessage));
                         break;
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"处理WebSocket消息时出错: {ex.Message}");
+                Debug.LogError($"Error handling WebSocket message: {ex.Message}");
             }
         }
 
@@ -409,42 +500,26 @@ namespace VAI
             try
             {
                 var response = JsonConvert.DeserializeObject<RecognitionResponse>(message);
-                string recognizedText = ReconstructTextFromWords(response);
-                
-                if (!string.IsNullOrEmpty(recognizedText))
+                var sentence = response?.payload?.output?.sentence;
+
+                if (sentence != null && !string.IsNullOrEmpty(sentence.text))
                 {
-                    _lastFinalTranscript = recognizedText;
-                    
-                    // 在主线程中触发事件
+                    // Invoke the event on the main thread with the complete Sentence object
                     UnityMainThreadDispatcher.Instance().Enqueue(() =>
                     {
-                        OnRecognitionStreaming?.Invoke(recognizedText);
+                        OnRecognitionStreaming?.Invoke(sentence);
                     });
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"处理识别结果时出错: {ex.Message}");
+                Debug.LogWarning($"Error handling recognition result: {ex.Message}");
             }
-        }
-
-        private string ReconstructTextFromWords(RecognitionResponse response)
-        {
-            if (response?.payload?.output?.sentence?.words == null) 
-                return "";
-
-            var stringBuilder = new StringBuilder();
-            foreach (var word in response.payload.output.sentence.words)
-            {
-                stringBuilder.Append(word.text); 
-                stringBuilder.Append(word.punctuation);
-            }
-            return stringBuilder.ToString().Trim();
         }
 
         #endregion
 
-        #region 辅助方法
+        #region Utility Methods
 
         private async Task WaitForCondition(Func<bool> condition, float timeoutSeconds, string description, CancellationToken cancellationToken)
         {
@@ -455,10 +530,10 @@ namespace VAI
                 await Task.Delay(100, cancellationToken);
                 elapsed += 0.1f;
             }
-            
+
             if (!condition())
             {
-                throw new TimeoutException($"{description}超时");
+                throw new TimeoutException($"{description} timed out.");
             }
         }
 
@@ -478,9 +553,9 @@ namespace VAI
         {
             return ex switch
             {
-                TimeoutException => "连接超时，请检查网络",
-                InvalidOperationException => "设备错误，请重试",
-                _ => "处理失败，请重试"
+                TimeoutException => "Connection timed out, please check your network.",
+                InvalidOperationException => "Device error, please try again.",
+                _ => "Processing failed, please try again."
             };
         }
 
@@ -501,11 +576,11 @@ namespace VAI
 
         #endregion
 
-        #region Unity生命周期
+        #region Unity Lifecycle
 
         private void Update()
         {
-            // 处理WebSocket消息队列
+            // Dispatch WebSocket message queue
             if (_websocket != null && _websocket.State == WebSocketState.Open)
             {
                 _websocket.DispatchMessageQueue();
@@ -514,7 +589,7 @@ namespace VAI
 
         private void OnDestroy()
         {
-            Debug.Log("ASR控制器正在清理...");
+            Debug.Log("Cleaning up ASR controller...");
             CleanupWebSocket();
             _currentTaskCts?.Cancel();
             _currentTaskCts?.Dispose();
@@ -523,11 +598,11 @@ namespace VAI
         #endregion
     }
 
-    #region Unity主线程调度器
+    #region Unity Main Thread Dispatcher
     public class UnityMainThreadDispatcher : MonoBehaviour
     {
         private static UnityMainThreadDispatcher _instance;
-        private readonly System.Collections.Concurrent.ConcurrentQueue<System.Action> _executionQueue = 
+        private readonly System.Collections.Concurrent.ConcurrentQueue<System.Action> _executionQueue =
             new System.Collections.Concurrent.ConcurrentQueue<System.Action>();
 
         public static UnityMainThreadDispatcher Instance()
@@ -557,7 +632,7 @@ namespace VAI
         public async Task EnqueueAsync(System.Action action)
         {
             var tcs = new TaskCompletionSource<bool>();
-            
+
             _executionQueue.Enqueue(() =>
             {
                 try
@@ -570,7 +645,7 @@ namespace VAI
                     tcs.SetException(ex);
                 }
             });
-            
+
             await tcs.Task;
         }
     }

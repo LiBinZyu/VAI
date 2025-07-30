@@ -19,11 +19,11 @@ namespace VAI
         public bool IsError { get; set; }
         public string ErrorMessage { get; set; }
         public bool HasToolCall { get; set; }
-        
-        public static LlmResult Success(string response, bool hasToolCall = false) => 
+
+        public static LlmResult Success(string response, bool hasToolCall = false) =>
             new LlmResult { Response = response, IsError = false, HasToolCall = hasToolCall };
-        
-        public static LlmResult Error(string errorMessage) => 
+
+        public static LlmResult Error(string errorMessage) =>
             new LlmResult { Response = "", IsError = true, ErrorMessage = errorMessage, HasToolCall = false };
     }
 
@@ -45,10 +45,10 @@ namespace VAI
     {
         public string role { get; set; }
         public string content { get; set; }
-        
+
         // Legacy function call support (deprecated)
         public FunctionCall function_call { get; set; }
-        
+
         // New tool calls support (current)
         public List<ToolCall> tool_calls { get; set; }
     }
@@ -108,16 +108,17 @@ namespace VAI
         [Header("Api")]
         [Tooltip("Aliyun DashScope API Key, leave empty to use environment variable DASHSCOPE_API_KEY")]
         public string apiKey = "DASHSCOPE_API_KEY";
+
         [Tooltip("Model name")]
         public string modelName = "qwen-turbo";
         [Tooltip("System role")]
         [TextArea(6, 12)]
         public string systemRole = "You are a smart assistant, helping users control objects in the Unity scene.";
-        
+
         [Header("Timeout")]
         [Tooltip("Request timeout (seconds)")]
         public float requestTimeoutSeconds = 30f;
-        
+
         [Header("Tool")]
         [Tooltip("Enable parallel tool calls")]
         public bool enableParallelToolCalls = true;
@@ -137,7 +138,7 @@ namespace VAI
         private bool _isProcessing = false;
         private static readonly HttpClient _httpClient = new HttpClient();
         private CancellationTokenSource _currentRequestCts;
-        
+
         // 实际使用的API Key
         private string _effectiveApiKey;
 
@@ -153,7 +154,7 @@ namespace VAI
                 // 初始化 FunctionRegistry
                 functionRegistry = new FunctionRegistry();
                 InitializeHttpClient();
-                
+
                 // 检查 API Key
                 if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable(apiKey)))
                 {
@@ -163,7 +164,7 @@ namespace VAI
                 {
                     _effectiveApiKey = System.Environment.GetEnvironmentVariable(apiKey);
                 }
-            
+
                 Debug.Log("LLM Controller Initialized as Singleton.");
             }
             else
@@ -234,9 +235,9 @@ namespace VAI
             {
                 _isProcessing = true;
                 _currentRequestCts = new CancellationTokenSource();
-                
+
                 var result = await ProcessCommandInternal(command, _currentRequestCts.Token);
-                
+
                 UnityMainThreadDispatcher.Instance().Enqueue(() =>
                 {
                     OnProcessingComplete?.Invoke(result);
@@ -264,10 +265,10 @@ namespace VAI
         {
             // 1. 调用LLM API
             var llmResponse = await CallLLMApi(command, cancellationToken);
-            
+
             // 2. 解析响应
             var parsedResponse = ParseLLMResponse(llmResponse);
-            
+
             // 3. 执行工具调用（如果有）
             if (parsedResponse.hasToolCalls)
             {
@@ -282,9 +283,9 @@ namespace VAI
         }
 
         private async Task<string> CallLLMApi(string prompt, CancellationToken cancellationToken)
-        {   
+        {
             string endpoint = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-            
+
             var requestData = new
             {
                 model = modelName,
@@ -299,10 +300,10 @@ namespace VAI
             };
 
             string jsonData = JsonConvert.SerializeObject(requestData);
-            
-            #if UNITY_EDITOR || DEVELOPMENT_BUILD
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.Log($"发送LLM请求: {jsonData}");
-            #endif
+#endif
 
             using var request = new HttpRequestMessage
             {
@@ -310,7 +311,7 @@ namespace VAI
                 RequestUri = new Uri(endpoint),
                 Content = new StringContent(jsonData, Encoding.UTF8, "application/json")
             };
-            
+
             request.Headers.Add("Authorization", $"Bearer {_effectiveApiKey}");
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -325,11 +326,11 @@ namespace VAI
             }
 
             string result = await response.Content.ReadAsStringAsync();
-            
-            #if UNITY_EDITOR || DEVELOPMENT_BUILD
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.Log($"LLM API响应: {result.Substring(0, Math.Min(300, result.Length))}...");
-            #endif
-            
+#endif
+
             return result;
         }
 
@@ -373,7 +374,7 @@ namespace VAI
         {
             var results = new List<string>();
             var errors = new List<string>();
-            
+
             if (enableParallelToolCalls && toolCalls.Count > 1)
             {
                 // 并行执行
@@ -400,10 +401,10 @@ namespace VAI
                     try
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        
+
                         var result = await ExecuteSingleToolCall(toolCall, cancellationToken);
                         results.Add(result);
-                        
+
                         // 给每个操作一些时间在Unity主线程中完成
                         await Task.Delay(100, cancellationToken);
                     }
@@ -413,7 +414,7 @@ namespace VAI
                     }
                 }
             }
-            
+
             return FormatExecutionResults(results, errors);
         }
 
@@ -458,7 +459,9 @@ namespace VAI
                                 {
                                     type = kv.Value.Type.ToString().ToLower(),
                                     description = kv.Value.Description,
-                                    @enum = kv.Value.Enum
+                                    @enum = kv.Value.EnumMapping != null && kv.Value.EnumMapping.Count > 0
+                                        ? kv.Value.EnumMapping.Values.Distinct().Select(v => v.ToString()).ToList()
+                                        : null
                                 }
                             ),
                             required = meta.Parameters.Keys.ToList()
@@ -491,7 +494,7 @@ namespace VAI
         private string FormatExecutionResults(List<string> results, List<string> errors)
         {
             var response = new StringBuilder();
-            
+
             if (results.Count > 0)
             {
                 response.AppendLine($"成功执行了 {results.Count} 个操作:");
@@ -500,7 +503,7 @@ namespace VAI
                     response.AppendLine($"✓ {result}");
                 }
             }
-            
+
             if (errors.Count > 0)
             {
                 if (results.Count > 0) response.AppendLine();
@@ -510,7 +513,7 @@ namespace VAI
                     response.AppendLine($"✗ {error}");
                 }
             }
-            
+
             return response.ToString().Trim();
         }
 

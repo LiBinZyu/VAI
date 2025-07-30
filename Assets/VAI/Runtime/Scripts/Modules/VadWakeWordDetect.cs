@@ -87,7 +87,7 @@ namespace VAI
                 Microphone.End(MicrophoneDevice);
                 Debug.Log("VAD: Microphone stopped.");
             }
-            
+
             StopSilenceMonitoring();
         }
 
@@ -131,7 +131,7 @@ namespace VAI
             }
 
             MicrophoneClip.GetData(_clipSampleData, readPosition);
-            
+
             float sum = _clipSampleData.Sum(sample => sample * sample);
             return Mathf.Sqrt(sum / _clipSampleData.Length) * 100;
         }
@@ -143,12 +143,12 @@ namespace VAI
             _currentVolume = GetCurrentVolume();
             OnVolumeChanged.Invoke(_currentVolume);
         }
-        
+
 
         private IEnumerator SilenceDetectionCoroutine()
         {
             Debug.Log("VAD: Started Silence Detection Coroutine.");
-            
+
             float timeSinceLastSound = 0f;
             float recordingStartTime = Time.time;
             bool hasDetectedVolumeChange = false;
@@ -198,7 +198,7 @@ namespace VAI
                     _silenceDetectionCoroutine = null;
                     yield break;
                 }
-                
+
                 if (_currentVolume > silenceVolumeThreshold)
                 {
                     // Sound was detected, so reset the silence timer.
@@ -216,7 +216,7 @@ namespace VAI
                     Debug.Log($"VAD: Silence detected for over {silenceTimeThreshold}s.");
                     OnSilenceDetected?.Invoke(false);
                     _silenceDetectionCoroutine = null;
-                    yield break; 
+                    yield break;
                 }
                 yield return null;
             }
