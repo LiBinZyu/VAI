@@ -1,0 +1,12 @@
+# VAI JointBERT 数据处理项目依赖
+
+# 核心依赖
+pandas>=1.5.0
+numpy>=1.21.0
+
+# 工具库
+tqdm>=4.64.0
+click>=8.1.0
+colorama>=0.4.5
+
+
