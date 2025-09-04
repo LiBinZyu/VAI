@@ -15,12 +15,12 @@
 
 `VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
->⭐ This system can be easily integrated into any Unity project. Usage is simple: just register your own functions in `FunctionRegistry.cs` and you're ready to go.
+>⭐ This system can be easily integrated into any Unity project. Usage is simple: just register your own functions in `functionRegistryExample.json` and you're ready to go.
 
 A user can say something like, `"Flip the cube, move me a bit closer to it and paint the ball navy blue"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
 <p align="center">
- <img src="https://i.imgur.com/qLNHnYd.gif" width="600">
+ <img src="https://i.imgur.com/XFF6u5E.gif" width="600">
 </p>
 
 <table align="center">
@@ -40,6 +40,7 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 * **Customizable Wake Word**: Define one or more phrases to activate voice listening. (**Note**: This feature currently relies on the Windows platform API.)
 * **High-Accuracy multilingual ASR**: Integrates with Alibaba Cloud's Qwen model for reliable speech-to-text transcription.
 * **LLM-Powered Intent Parsing**: Leverages a Large Language Model to interpret natural language and convert it into a structured JSON `tool_call`.
+    > <!> Through the local real-time intent parsing `NluController.cs` module, it reduces the number of LLM calls and lock the function and implement 0-delay feedback.
 * **Seamless Function Execution**: Automatically maps the LLM's output to execute corresponding C# functions within Unity.
 * **Simple Configuration with UI**: You can use VAI UI in your own project.
 
@@ -50,44 +51,54 @@ The system operates in an explicit workflow:
 <!--
 @startuml
 
+title VAI Workflow
+
 actor User
-participant "Simple VAD" as VAD
-participant ASR
-participant LLM
-participant "Unity Functions" as Functions
+participant "Voice Activity Detection" as VAD
+participant "Speech Recognition" as ASR
+participant "Intent NLU" as NLU
+participant "LLM" as LLM
+participant "Functions" as Functions
 
-== VAI.Startup ==
-
-User -> VAD: Speaking
-hnote over VAD: Detect wake word
+User -> VAD: Starts speaking
 activate VAD
+note right of VAD:wake word
 
-VAD ->> ASR: Streams audio
-
+VAD -> ASR: Streams audio data
 activate ASR
-ASR -> ASR: Map hot words
-VAD -> VAD: Detects silence
-VAD -> ASR: Close ASR task
-ASR -> LLM: Sends command
+activate NLU
+
+VAD -> ASR: Silence, ends ASR
+deactivate VAD
+
+ASR -> NLU:intent matching
 deactivate ASR
-activate LLM
-alt Successful
-LLM -> Functions: Dispatches tool_call
-else Fail
-LLM -> LLM: Save memory \nfor furthur declaration
+
+alt Fast Path:intent matched
+
+    NLU -> Functions:Calls the function
+    activate Functions
+  
+else Fallback Path: Resort to LLM
+
+    NLU -> LLM: Local intent failed
+    deactivate NLU
+    activate LLM
+    LLM -> Functions: tool_call
+
 end
+
+deactivate NLU
 deactivate LLM
 
-activate Functions
-Functions -> Functions: Executes tool_call
-Functions -> User: Returns execution result
+Functions -> Functions: Executes
+Functions -> User: Returns the operation result
 deactivate Functions
-deactivate VAD
-== VAI.Shutdown ==
+
 @enduml
 -->
 <p align="center">
- <img src="https://cdn-0.plantuml.com/plantuml/png/LPBRwjim3CRl_HIYzzi3559QrXK6xKr3TpKOmb4NKn-29RVhsy_AjkJlYnnqqFVzaBrdmImbU8DMKeORKpPJJJdh9em2czw5oHDyFnmtWApVfdxehqryFb_Q-LjqyePJYLPSYgmYQsHCrrN9Rv_x6ME2hZD66U3JJgssq4-43nT_cJ4c8KXFodyBHnAo0Yzy4BnI7WnMoISApOYclgh6JlcgY6J2m81bSCcidGfV7pMR-ouumPXarkD_4X_T6DXvYfQqjanzyObdBH3ant_1keXgJ75Wi2a4Z8CPg75U0jqPUe6-M4lCz-9DJQd8igXAu7X2iICnI4h-fqNl3NacEA6R1rPNV1842Yc_uKUyfmptacKi6GQo7ZEgfA6MI25MfCNOB7yj3tpzJRP8GzEqwYbkuKfISasGTciDCd7niZWtNcjIjxxSZR78a5vHByU-KfVW_m00" width="600">
+ <img src="https://i.imgur.com/0iU9FPF.png" width="600">
 </p>
 
 1.  **Wake Word Detection**
@@ -136,27 +147,40 @@ deactivate VAD
     * Set your API Key as an environment variable and fill the environment variable name in the Inspector.
     * The system will automatically read the API Key from the environment variables.
 
-4.  **Register functions at `FuncRegistryExample`**
-    * Before using VAI, please place all the functions you want to use in a single script. Then, reference this function script in the `FuncRegistryExample` script. In `FuncRegistryExample`, you can register functions via code, or manually add and configure registered functions and their parameter information in the Inspector panel. Both methods will be called by `VAI.LlmController` in the current scene during `Start()`. You can view all registered functions available for voice control in the UI panel. Please ensure that the function names and parameters strictly match their definitions.
+4.  **Register functions at `functionRegistryExample.json`**
+    * Before using VAI, please place all the functions you want to use in a single script. Then, reference this function script in the `functionRegistryExample.json`. This will be called by `VAI.LlmController` and `VAI.NluController` in the current scene during `Start()`. You can view all registered functions available for voice control in the UI panel. Please ensure that the function names and parameters strictly match their definitions.
     * There are two functions which are to change transform and color for objects at the scene.
-    ```csharp
-    Register(new FunctionMeta
+
+    ```json
+    // functionRegistryExample.json
+    {
+        "Name": "ChangeObjectColor",
+        "Description": "Change the color of game object",
+        "NameSynonyms": [
+            "颜色","color","变成"
+        ],
+        "Parameters": [
             {
-                Name = "ChangeObjectColor",
-                Description = "改变物体的颜色",
-                Parameters = new Dictionary<string, ParameterMeta>
-                {
-                    { "objectName", new ParameterMeta { 
-                      Type = "string", 
-                      Description = "物体的名字", 
-                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
-                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
-                },
-                Execute = args =>
-                {
-                    ...
-                }
-            });
+                "ParamName": "objectName",
+                "ParamType": "String",
+                "EnumValues": [
+                    {
+                        "Value": "cube",
+                        "Keywords": ["正方体", "cube"]
+                    }]
+            },
+            {
+                "ParamName": "hexColor",
+                "ParamType": "String",
+                "EnumValues": [
+                    {
+                        "Value": "#FF0000",
+                        "Keywords": ["red", "red color"]
+                    }]
+            }
+        ]
+    }
+
     ```
 
 5.  **Run the Application**
@@ -188,6 +212,7 @@ deactivate VAD
   * **自定义唤醒词**：定义一个或多个短语来激活语音监听。（**注意**：此功能目前依赖于 Windows 平台 API。）
   * **高精度多语言 ASR**：集成了阿里云的通义千问模型，实现可靠的语音转文本功能。
   * **LLM 驱动的意图解析**：利用大语言模型来解释自然语言，并将其转换为结构化的 JSON `tool_call`。
+    > <!> 通过本地实时的意图解析模块, 可以减少LLM 调用频次, 在LLM 之前锁定函数并实现0延迟反馈。
   * **无缝的函数执行**：自动将 LLM 的输出映射到 Unity 内部相应的函数并执行。
   * **通过 UI 进行简单配置**：您可以在自己的项目中使用 VAI 的 UI 界面。
 
@@ -198,44 +223,54 @@ deactivate VAD
 <!--
 @startuml
 
-actor 用户 as User
-participant "简单VAD" as VAD
-participant "语音识别" as ASR
-participant "大语言模型" as LLM
-participant "Unity函数" as Functions
+title VAI
 
-== VAI.Startup ==
+actor 用户 as User
+    participant "VAD (声音活动检测)" as VAD
+    participant "ASR (语音识别)" as ASR
+    participant "NLU (意图匹配)" as NLU
+    participant "LLM (大语言模型)" as LLM
+    participant "工具函数" as Functions
 
 User -> VAD: 开始说话
-hnote over VAD: 检测唤醒词
 activate VAD
+note right of VAD: 检测唤醒词
 
-VAD ->> ASR: 流式传输音频
-
+VAD -> ASR: 流式传输音频数据
 activate ASR
-ASR -> ASR: 映射热词
-VAD -> VAD: 检测到静音
-VAD -> ASR: 关闭ASR任务
-ASR -> LLM: 发送指令文本
+activate NLU
+
+VAD -> ASR: 检测到静音 ASR结束
+deactivate VAD
+
+ASR -> NLU: 持续进行意图匹配
 deactivate ASR
-activate LLM
-alt 成功情况
-    LLM -> Functions: 分发工具调用 (tool_call)
-else 失败情况
-    LLM -> LLM: 保存记忆\n等待澄清
+
+alt 快速路径：本地意图匹配成功
+
+    NLU -> Functions: 直接调用匹配到的函数
+activate Functions
+  
+else 兜底路径：求助于大语言模型
+
+    NLU -> LLM: 本地意图失败，请求LLM
+    deactivate NLU
+    activate LLM
+    LLM -> Functions: tool_call
+
 end
+
+deactivate NLU
 deactivate LLM
 
-activate Functions
-Functions -> Functions: 执行工具调用
-Functions -> User: 返回执行结果
+Functions -> Functions: 执行具体的功能调用
+Functions -> User: 返回操作结果
 deactivate Functions
-deactivate VAD
-== VAI.Shutdown ==
+
 @enduml
 -->
 <p align="center">
- <img src="https://cdn-0.plantuml.com/plantuml/png/NP9VQzDG6CRltqznsBr-W4771Y88yqQPLuA4Bc0X9gF91jwbT4rZkp-TwtJYsgtQqO1cYMobOkhwPVAUd7mBtyIQS2oqFUtpEy_pvELTDosbRks-qK2fMaQT9NsFkpEcc6pBLEkmGsAjMjjHT8kj93Ss7fwzs7YqakdqBSiYyDFBMn4uw7xBYOtdpsG2nnE2X6TpRuJ3RWvjRZwLeIszPht5zcz-5kR0urszQjKCtGIeL2ZroKFi1TZn-BIHU5rMgG1aLTc3jQpIAiEvZPEk2Ev4C83Nkc6fpDWZFHVvLvjFkzWVfyvx4Ho2GjPx2Y6a0j07sQnbnGcTDd1-7C-lnFqfFLVwvGHAd0YWDz5B-FmAm_sawPFfqaOATCDqy8bSCgsuXAtRzADFnpYAi3FwPqWJ8Utu9BKR_A0THsF-eSqlliEsAiKNFuW7HRCOTtlOkUJD5ZfJOFGYWVpA0PAhwv0nimn3UrLLD0rKpLGPZd-8kslvOb4aNWpGFnSt8IwSbpgjH_ph27j7IUJp-tt-imMglatLf3Pbjo8RYjD_bVYxYHWTuEmQMpCHDYb0GlCrN6LYqSVFmxzi4ftouKMHAQMKVsRZBnOc7tIvCElKcLR-3m00" width="600">
+ <img src="https://i.imgur.com/ndrYQ2M.png" width="600">
 </p>
 
 
@@ -296,27 +331,38 @@ deactivate VAD
       * 系统会自动从环境变量中读取 API Key。
 
 4.  **在 `FuncRegistryExample` 中配置函数**
-      * 在使用 VAI 之前，请将所有需要用到的函数放在一个脚本中，然后在 `FuncRegistryExample` 脚本中引用该函数脚本。在 `FuncRegistryExample` 中可以通过代码注册函数，或者在 Inspector 面板上手动新增注册函数并填写其参数信息。这两种方式都会在当前场景的 `VAI.LlmController` 的 Start 阶段被调用。您可以在 UI 面板上查看所有已注册、可通过语音控制的函数。请注意函数名和参数要与函数定义严格对应。
+      * 在使用 VAI 之前，请将所有需要用到的函数放在一个脚本中，然后在 `functionRegistryExample.json` 中引用该函数脚本。在    `functionRegistryExample.json` 中可以注册函数。其会在当前场景的 `VAI.LlmController` 和 `VAI.NluController` 的 Start 阶段被调用。您可以在 UI 面板上查看所有已注册、可通过语音控制的函数。请注意函数名和参数要与函数定义严格对应。
       * 示例中提供了两个函数，用于更改场景中物体的变换和颜色。
       
-      ```csharp
-    Register(new FunctionMeta
+    ```json
+    // functionRegistryExample.json
+    {
+        "Name": "ChangeObjectColor",
+        "Description": "Change the color of game object",
+        "NameSynonyms": [
+            "颜色","color","变成"
+        ],
+        "Parameters": [
             {
-                Name = "ChangeObjectColor",
-                Description = "改变物体的颜色",
-                Parameters = new Dictionary<string, ParameterMeta>
-                {
-                    { "objectName", new ParameterMeta { 
-                      Type = "string", 
-                      Description = "物体的名字", 
-                      Enum = new List<string> { "cube", "sphere", "capsule", "main camera" } } },
-                    { "hexColor", new ParameterMeta { Type = "string", Description = "hex color code" } }
-                },
-                Execute = args =>
-                {
-                    ...
-                }
-            });
+                "ParamName": "objectName",
+                "ParamType": "String",
+                "EnumValues": [
+                    {
+                        "Value": "cube",
+                        "Keywords": ["正方体", "cube"]
+                    }]
+            },
+            {
+                "ParamName": "hexColor",
+                "ParamType": "String",
+                "EnumValues": [
+                    {
+                        "Value": "#FF0000",
+                        "Keywords": ["red", "red color"]
+                    }]
+            }
+        ]
+    }
     ```
 
 5.  **运行应用程序**
