@@ -11,7 +11,15 @@
 <div id="en-us">
 
 [![Unity Version](https://img.shields.io/badge/Unity-2022.3.47%2B-blue.svg)](https://unity.com/)
+[![Platform](https://img.shields.io/badge/Platform-Android%20-green.svg)](#)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20-blue.svg)](#)
+[![Platform](https://img.shields.io/badge/Platform-iOS%20-lightgrey.svg)](#)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20-darkgrey.svg)](#)
+
+**Platform Support & Wake Word**  
+This project is designed to be cross-platform (all major platforms supported). The wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity).  
+**ASR Limitation**: The paraformer API is currently only available for registration and use within China. Users outside China cannot register for this service.  
+**Future Plan**: We plan to adopt the sherpa-onnx paraformer v1 realtime model in future updates, making the system more universally accessible.
 
 `VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
@@ -37,8 +45,9 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 ## Features
 
-* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (**Note**: This feature currently relies on the Windows platform API.)
-* **High-Accuracy multilingual ASR**: Integrates with Alibaba Cloud's Qwen model for reliable speech-to-text transcription.
+* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (Wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity).)
+* **High-Accuracy multilingual ASR**: Integrates with Alibaba Cloud's Qwen model for reliable speech-to-text transcription.  
+  > **Note:** The paraformer API is only available for registration and use within China. Future updates will support the sherpa-onnx paraformer v1 realtime model.
 * **LLM-Powered Intent Parsing**: Leverages a Large Language Model to interpret natural language and convert it into a structured JSON `tool_call`.
     > <!> Through the local real-time intent parsing `NluController.cs` module, it reduces the number of LLM calls and lock the function and implement 0-delay feedback.
 * **Seamless Function Execution**: Automatically maps the LLM's output to execute corresponding C# functions within Unity.
@@ -201,6 +210,11 @@ deactivate Functions
 [](https://unity.com/)
 [](https://www.google.com/search?q=%23)
 
+**平台与唤醒词说明**  
+本项目支持全平台通用，唤醒词检测采用 [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity)。  
+**ASR 限制**：paraformer API 仅限中国地区注册使用，其他地区用户无法注册该服务。  
+**后续计划**：将采用 sherpa-onnx 的 paraformer v1 实时模型，后续会持续更新，提升系统的全球可用性。
+
 `VAI (Unity Voice AI Assistant)` 是一个端到端系统，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
 
 > 该系统可以非常方便地集成到任何 Unity 项目中，使用方法也很简单：只需在 `FunctionRegistry.cs` 文件中填写您项目中的函数即可。
@@ -209,8 +223,9 @@ deactivate Functions
 
 ## 功能
 
-  * **自定义唤醒词**：定义一个或多个短语来激活语音监听。（**注意**：此功能目前依赖于 Windows 平台 API。）
-  * **高精度多语言 ASR**：集成了阿里云的通义千问模型，实现可靠的语音转文本功能。
+  * **自定义唤醒词**：定义一个或多个短语来激活语音监听。（唤醒词检测采用 [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity)。）
+  * **高精度多语言 ASR**：集成了阿里云的通义千问模型，实现可靠的语音转文本功能。  
+    > **注意**：paraformer API 仅限中国地区注册使用，后续将支持 sherpa-onnx 的 paraformer v1 实时模型。
   * **LLM 驱动的意图解析**：利用大语言模型来解释自然语言，并将其转换为结构化的 JSON `tool_call`。
     > <!> 通过本地实时的意图解析模块, 可以减少LLM 调用频次, 在LLM 之前锁定函数并实现0延迟反馈。
   * **无缝的函数执行**：自动将 LLM 的输出映射到 Unity 内部相应的函数并执行。
