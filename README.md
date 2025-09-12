@@ -10,13 +10,17 @@
 
 <div id="en-us">
 
-[![Unity Version](https://img.shields.io/badge/Unity-2022.3.47%2B-blue.svg)](https://unity.com/)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20%7C%20iOS%20%7C%20macOS-grey%20%7C%20grey%20%7C%20grey%20%7C%grey.svg)](#)
+[![Unity](https://img.shields.io/badge/Unity-2022.3.47%2B-000000?logo=unity&logoColor=white&color=grey)](https://unity.com/)
+![csharp](https://img.shields.io/badge/C%23-239120?&color=grey)
+![Android](https://img.shields.io/badge/-000?logo=android&logoColor=fff)
+![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white&color=black)
+![iOS](https://img.shields.io/badge/-000?logo=ios&logoColor=fff)
+![macOS](https://img.shields.io/badge/macOS-black.svg)
 
 
 `VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
->⭐ This system can be easily integrated into any Unity project. Usage is simple: just register your own functions in `functionRegistryExample.json` and you're ready to go.
+This system can be easily integrated into any Unity project.
 
 A user can say something like, `"Flip the cube, move me a bit closer to it and paint the ball navy blue"` and the system intelligently parses this into a precise, structured command that your application can execute instantly.
 
@@ -203,9 +207,9 @@ deactivate Functions
 [](https://unity.com/)
 [](https://www.google.com/search?q=%23)
 
-`VAI (Unity Voice AI Assistant)` 是一个端到端系统，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
+`VAI (Unity Voice AI Assistant)` 是一个端到端全平台流程，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
 
-> 该系统可以非常方便地集成到任何 Unity 项目中，使用方法也很简单：只需在 `FunctionRegistry.cs` 文件中填写您项目中的函数即可。
+该系统可以非常方便地集成到任何 Unity 项目中。
 
 用户可以说出像“`把正方体回转一下，挪向我这边，然后把球刷成海军蓝色`”这样的指令，系统会智能地将其解析为一个精确、结构化的命令，您的应用程序可以立即执行。
 
@@ -213,7 +217,7 @@ deactivate Functions
 
   * **自定义唤醒词**：定义一个或多个短语来激活语音监听。（唤醒词检测采用 [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity)。）
   * **高精度多语言 ASR**：集成了阿里云的通义千问模型，实现可靠的语音转文本功能。  
-    > **注意**：paraformer API 仅限中国地区注册使用，后续将支持 sherpa-onnx 的 paraformer v1 实时模型。
+    > <!> paraformer API 仅限中国地区注册使用，后续将支持 sherpa-onnx 的 paraformer v1 实时模型。
   * **LLM 驱动的意图解析**：利用大语言模型来解释自然语言，并将其转换为结构化的 JSON `tool_call`。
     > <!> 通过本地实时的意图解析模块, 可以减少LLM 调用频次, 在LLM 之前锁定函数并实现0延迟反馈。
   * **无缝的函数执行**：自动将 LLM 的输出映射到 Unity 内部相应的函数并执行。
@@ -326,8 +330,10 @@ deactivate Functions
 2.  **配置唤醒词**
 
       * 在 `Hierarchy` 面板中选择包含语音命令脚本的 `GameObject`。
-      * 在 `Inspector` 面板中，找到 `Wake Word` 字段并设置您想要的激活短语。
-
+      * 在 `Assets\StreamingAssets\CustomKeywords.txt` 写入您想要的激活短语，目前仅限中文，格式为
+        ```
+        x iǎo zh ù sh ǒu @小助手
+        ```
 3.  **配置 API Key**
 
       * 将您的 API Key 设置为环境变量，在 Inspector 面板中填写变量名。
