@@ -385,7 +385,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 401.5, y: -30}
+  m_AnchoredPosition: {x: 320, y: -30}
   m_SizeDelta: {x: 300, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &99437363
@@ -1425,7 +1425,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 251.5, y: -180}
+  m_AnchoredPosition: {x: 170, y: -180}
   m_SizeDelta: {x: 300, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &282780653
@@ -1614,6 +1614,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   functionImplementations: {fileID: 363928519}
+  functionConfigFile: {fileID: 4900000, guid: 02caf78be96843ac9e0496a8301a467c, type: 3}
   userRegisteredFunctions:
   - Name: ReplaceCustomAnimMotion
     Description: "\u7ED9\u89D2\u8272\u64AD\u653E\u4E00\u4E2A\u65B0\u52A8\u753B"
@@ -1666,8 +1667,6 @@ MonoBehaviour:
     clip: {fileID: 7400000, guid: e58b3b2c2aa448e40b8e231a245822cc, type: 2}
   targetRenderer: {fileID: 2130558727481070920}
   placeholderAnim: {fileID: 7400000, guid: f56845204675a7642814162addcd910d, type: 2}
-  clipdeName: sing
-  animationTrigger: 1
   sceneLight: {fileID: 269872830}
 --- !u!1 &401193259
 GameObject:
@@ -7075,8 +7074,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   apiKey: DASHSCOPE_API_KEY
-  VocabularyId: vocab-prefix-080b75a4105a44788d6219284935cce9
-  vadModule: {fileID: 1798560497}
+  asrParameters:
+    format: wav
+    sample_rate: 16000
+    vocabulary_id: 
+    language_hints: 
+    semantic_punctuation_enabled: 0
+    multi_threshold_mode_enabled: 0
+    max_sentence_silence: 800
+    disfluency_removal_enabled: 1
+    punctuation_prediction_enabled: 1
+    heartbeat: 0
+    inverse_text_normalization_enabled: 1
+  maxRecordingTime: 20
+  silenceThreshold: 2
+  vadModule: {fileID: 0}
 --- !u!114 &1798560497
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7127,8 +7139,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ffe8f2fbe732c443b6edc45b356587d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  vadModule: {fileID: 1798560497}
+  keywordSpottingModule: {fileID: 0}
   asrModule: {fileID: 1798560496}
+  nluModule: {fileID: 0}
+  useNluBeforeLlm: 1
   llmModule: {fileID: 1798560495}
   statusText: {fileID: 1852145857}
   statusAnimator: {fileID: 1477927180}

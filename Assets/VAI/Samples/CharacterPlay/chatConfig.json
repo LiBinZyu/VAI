@@ -1,0 +1,354 @@
+[
+  {
+    "Name": "ModifyTransform",
+    "Description": "修改物体的变换属性，包括移动、旋转和缩放。",
+    "NameSynonyms": [
+      "移动",
+      "旋转",
+      "缩放",
+      "变",
+      "调整",
+      "挪",
+      "位移",
+      "挪动",
+      "位置",
+      "移动到",
+      "移",
+      "move",
+      "rotate",
+      "scale"
+    ],
+    "Parameters": [
+      {
+        "ParamName": "objectName",
+        "ParamType": "String",
+        "EnumValues": [
+          {
+            "Value": "cube",
+            "Keywords": [
+              "方块",
+              "立方体",
+              "正方体",
+              "cube"
+            ]
+          },
+          {
+            "Value": "sphere",
+            "Keywords": [
+              "球",
+              "球体",
+              "圆球",
+              "sphere"
+            ]
+          },
+          {
+            "Value": "capsule",
+            "Keywords": [
+              "胶囊"
+            ]
+          }
+        ]
+      },
+      {
+        "ParamName": "transformType",
+        "ParamType": "String",
+        "EnumValues": [
+          {
+            "Value": "moveleft",
+            "Keywords": [
+              "向左",
+              "往左",
+              "左",
+              "左边",
+              "左移",
+              "往左边"
+            ]
+          },
+          {
+            "Value": "moveright",
+            "Keywords": [
+              "向右",
+              "往右",
+              "右",
+              "右边",
+              "右移",
+              "往右边"
+            ]
+          },
+          {
+            "Value": "moveforward",
+            "Keywords": [
+              "向前",
+              "往前",
+              "前",
+              "前面",
+              "前边",
+              "前边儿"
+            ]
+          },
+          {
+            "Value": "movebackward",
+            "Keywords": [
+              "向后",
+              "往后",
+              "后面",
+              "后面",
+              "后",
+              "后边",
+              "后边儿"
+            ]
+          },
+          {
+            "Value": "moveup",
+            "Keywords": [
+              "向上",
+              "往上",
+              "上边",
+              "上移",
+              "上"
+            ]
+          },
+          {
+            "Value": "movedown",
+            "Keywords": [
+              "向下",
+              "往下",
+              "下"
+            ]
+          },
+          {
+            "Value": "pitch",
+            "Keywords": [
+              "俯仰",
+              "抬头",
+              "低头"
+            ]
+          },
+          {
+            "Value": "yaw",
+            "Keywords": [
+              "偏航",
+              "转向",
+              "左右转"
+            ]
+          },
+          {
+            "Value": "roll",
+            "Keywords": [
+              "翻滚",
+              "侧倾",
+              "旋转"
+            ]
+          },
+          {
+            "Value": "scale",
+            "Keywords": [
+              "放大",
+              "缩小",
+              "变大",
+              "变小"
+            ]
+          }
+        ]
+      },
+      {
+        "ParamName": "number",
+        "ParamType": "Number",
+        "EnumValues": []
+      }
+    ]
+  },
+  {
+    "Name": "ChangeObjectColor",
+    "Description": "改变物体的颜色。",
+    "NameSynonyms": [
+      "颜色",
+      "color",
+      "变成"
+    ],
+    "Parameters": [
+      {
+        "ParamName": "objectName",
+        "ParamType": "String",
+        "EnumValues": [
+          {
+            "Value": "cube",
+            "Keywords": [
+              "方块",
+              "立方体",
+              "正方体",
+              "cube"
+            ]
+          },
+          {
+            "Value": "sphere",
+            "Keywords": [
+              "球",
+              "球体",
+              "圆球",
+              "sphere"
+            ]
+          },
+          {
+            "Value": "capsule",
+            "Keywords": [
+              "胶囊"
+            ]
+          }
+        ]
+      },
+      {
+        "ParamName": "hexColor",
+        "ParamType": "String",
+        "EnumValues": [
+          {
+            "Value": "#FF0000",
+            "Keywords": [
+              "红色",
+              "红"
+            ]
+          },
+          {
+            "Value": "#00FF00",
+            "Keywords": [
+              "绿色",
+              "绿"
+            ]
+          },
+          {
+            "Value": "#0000FF",
+            "Keywords": [
+              "蓝色",
+              "蓝"
+            ]
+          },
+          {
+            "Value": "#FFFF00",
+            "Keywords": [
+              "黄色",
+              "黄"
+            ]
+          },
+          {
+            "Value": "#00FFFF",
+            "Keywords": [
+              "青色",
+              "青",
+              "蓝绿"
+            ]
+          },
+          {
+            "Value": "#FF00FF",
+            "Keywords": [
+              "紫色",
+              "紫",
+              "品红"
+            ]
+          },
+          {
+            "Value": "#FFFFFF",
+            "Keywords": [
+              "白色",
+              "白"
+            ]
+          },
+          {
+            "Value": "#000000",
+            "Keywords": [
+              "黑色",
+              "黑"
+            ]
+          },
+          {
+            "Value": "#FFA500",
+            "Keywords": [
+              "橙色",
+              "橙"
+            ]
+          },
+          {
+            "Value": "#A52A2A",
+            "Keywords": [
+              "棕色",
+              "褐色",
+              "棕"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "Name": "SetTimeOfDay",
+    "Description": "设置0-24小时的时间",
+    "NameSynonyms": [
+      "时间",
+      "时刻",
+      "几点"
+    ],
+    "Parameters": [
+      {
+        "ParamName": "timeOfDay",
+        "ParamType": "Number",
+        "EnumValues": []
+      }
+    ]
+  },
+  {
+    "Name": "SetExpressionHappy",
+    "Description": "设置游戏角色的表情为开心",
+    "NameSynonyms": [
+      "开心",
+      "高兴",
+      "愉快",
+      "快乐",
+      "笑容",
+      "笑"
+    ],
+    "Parameters": []
+  },
+  {
+    "Name": "SetExpressionSad",
+    "Description": "设置游戏角色的表情为悲伤",
+    "NameSynonyms": [
+      "悲伤",
+      "伤心",
+      "难过",
+      "沮丧"
+    ],
+    "Parameters": []
+  },
+  {
+    "Name": "SetExpressionAngry",
+    "Description": "设置游戏角色的表情为愤怒",
+    "NameSynonyms": [
+      "愤怒",
+      "生气",
+      "恼怒",
+      "发怒"
+    ],
+    "Parameters": []
+  },
+  {
+    "Name": "SetExpressionSurprised",
+    "Description": "设置游戏角色的表情为惊讶",
+    "NameSynonyms": [
+      "惊讶",
+      "吃惊",
+      "震惊",
+      "意外"
+    ],
+    "Parameters": []
+  },
+  {
+    "Name": "SetExpressionDisgusted",
+    "Description": "设置游戏角色的表情为厌恶",
+    "NameSynonyms": [
+      "厌恶",
+      "讨厌",
+      "反感",
+      "恶心"
+    ],
+    "Parameters": []
+  }
+]

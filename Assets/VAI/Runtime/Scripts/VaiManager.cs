@@ -1,7 +1,6 @@
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Windows.Speech;
 using System;
 
 namespace VAI
@@ -38,17 +37,15 @@ namespace VAI
         }
 
         [Header("Module References")]
-        [SerializeField] private VadWakeWordDetect vadModule;
+        [SerializeField] private SherpaOnnxKeywords keywordSpottingModule;
         [SerializeField] private AsrController asrModule;
         [SerializeField] private NluController nluModule;
         [Tooltip("[Save api fees but not accurate] Use simple natural language understanding before sending to large language model (LLM)")]
         public bool useNluBeforeLlm = true;
         [SerializeField] private LlmController llmModule;
 
-        [Header("VAD Configuration")] // *** ADDED THIS SECTION ***
-        [Tooltip("Use the ASR model's built-in VAD to detect the end of speech. If false, uses the local silence detection based on volume.")]
-        public bool useAsrVad = true;
-
+        // The 'useAsrVad' option has been removed as it's now the default and only behavior.
+        // The end of speech is detected by the ASR module itself.
 
         [Header("UI References")]
         [SerializeField] private Text statusText;
@@ -67,20 +64,21 @@ namespace VAI
             Debug.Log("VAI Manager: Starting up...");
             _conversationData = new VaiConversationData();
             // Subscribe to module events
-            vadModule.OnWakeWordRecognized += HandleWakeWordRecognized;
-            vadModule.OnSilenceDetected += HandleSilenceDetected;
+            SherpaOnnxKeywords.OnKeywordSpotted += HandleKeywordSpotted; // Use static event
             asrModule.OnRecognitionStreaming += HandleAsrRecognitionStreaming;
             asrModule.Error += HandleAsrError;
+            asrModule.OnSilenceTimeout += HandleAsrSilenceTimeout;
+            asrModule.OnMaxRecordingTimeReached += HandleAsrMaxRecordingTimeReached;
             llmModule.OnProcessingComplete += HandleLlmProcessingComplete;
             llmModule.Error += HandleLlmError;
 
-            vadModule.Initialize();
+            keywordSpottingModule.Initialize();
 
             statusTextColor = statusText.color;
 
             // Start in the Idle state
             TransitionToState(AssistantState.Idle);
-            Debug.Log("VAI Manager: Startup complete. Listening for wake word.");
+            Debug.Log("VAI Manager: Startup complete. Listening for keywords.");
         }
 
         public void Shutdown()
@@ -88,15 +86,16 @@ namespace VAI
             Debug.Log("VAI Manager: Shutting down...");
             TransitionToState(AssistantState.Shutdown);
             // Unsubscribe to prevent memory leaks
-            vadModule.OnWakeWordRecognized -= HandleWakeWordRecognized;
-            vadModule.OnSilenceDetected -= HandleSilenceDetected;
+            SherpaOnnxKeywords.OnKeywordSpotted -= HandleKeywordSpotted; // Use static event
             asrModule.OnRecognitionStreaming -= HandleAsrRecognitionStreaming;
             asrModule.Error -= HandleAsrError;
+            asrModule.OnSilenceTimeout -= HandleAsrSilenceTimeout;
+            asrModule.OnMaxRecordingTimeReached -= HandleAsrMaxRecordingTimeReached;
             llmModule.OnProcessingComplete -= HandleLlmProcessingComplete;
             llmModule.Error -= HandleLlmError;
 
             // Ensure all modules are properly shut down
-            vadModule.Shutdown();
+            keywordSpottingModule.Shutdown();
             asrModule.StopRecognition();
             llmModule.CancelProcessing();
 
@@ -135,7 +134,6 @@ namespace VAI
                     _conversationData.Clear();
                     nluModule.ClearStoredCommands();
                     UpdateStatusText();
-                    vadModule.StopSilenceMonitoring();
                     asrModule.StopRecognition();
                     llmModule.CancelProcessing();
                     break;
@@ -145,7 +143,6 @@ namespace VAI
                     _conversationData.ClearMainInfo();
                     nluModule.ClearStoredCommands();
                     asrModule.StartRecognition();
-                    vadModule.StartSilenceMonitoring();
                     break;
                 case AssistantState.Processing:
                     asrModule.StopRecognition();
@@ -172,52 +169,17 @@ namespace VAI
 
         #region Event Handlers
 
-        private void HandleWakeWordRecognized(PhraseRecognizedEventArgs args)
+        private void HandleKeywordSpotted(string keyword)
         {
-            // Only respond to wake words when idle, or when in Success/Invalid states (to allow interruption)
+            // Only respond to keywords when idle, or when in Success/Invalid states (to allow interruption)
             if (_currentState != AssistantState.Idle &&
                 _currentState != AssistantState.Success &&
                 _currentState != AssistantState.Invalid) return;
 
-            _conversationData.WakeWord = args.text;
-            _conversationData.WakeWordConfidence =
-            args.confidence switch
-            {
-                ConfidenceLevel.Low => 0.3f,
-                ConfidenceLevel.Medium => 0.6f,
-                ConfidenceLevel.High => 0.9f,
-                _ => 0.1f
-            };
+            _conversationData.WakeWord = keyword;
+            _conversationData.WakeWordConfidence = 0.9f; // High confidence for keyword spotting
             TransitionToState(AssistantState.Listening);
             UpdateStatusText();
-        }
-
-        private void HandleSilenceDetected(bool isDuringWakeBufferTime)
-        {
-            if (_currentState != AssistantState.Listening) return;
-
-            // If using ASR VAD, this handler should ONLY handle the initial wake buffer silence.
-            // The actual end of speech will be handled by the ASR result.
-            if (useAsrVad)
-            {
-                if (isDuringWakeBufferTime)
-                {
-                    Debug.Log("MANAGER: No volume change during wake buffer, returning to idle (ASR VAD Mode).");
-                    TransitionToState(AssistantState.Idle);
-                }
-                // In ASR VAD mode, we ignore end-of-speech silence from the local VAD module.
-                return;
-            }
-
-            // --- Original Logic for local VAD ---
-            if (isDuringWakeBufferTime)
-            {
-                Debug.Log("MANAGER: No volume change detected during wake buffer time, returning to idle (Local VAD Mode).");
-                TransitionToState(AssistantState.Idle);
-                return;
-            }
-
-            ProcessEndOfSpeech();
         }
 
         private void HandleAsrRecognitionStreaming(Sentence sentence)
@@ -240,8 +202,8 @@ namespace VAI
 
             UpdateStatusText();
 
-            // *** NEW LOGIC: Check for end of speech signal from ASR VAD ***
-            if (useAsrVad && sentence.sentence_end)
+            // Process end of speech signal from ASR VAD
+            if (sentence.sentence_end)
             {
                 Debug.Log("MANAGER: ASR VAD detected sentence end. Processing result.");
                 ProcessEndOfSpeech();
@@ -250,9 +212,6 @@ namespace VAI
 
         private void ProcessEndOfSpeech()
         {
-            // Stop monitoring for silence as we are now processing the result.
-            vadModule.StopSilenceMonitoring();
-
             if (nluModule.HasStoredCommands())
             {
                 Debug.Log($"[VAI Manager] NLU has stored commands. Executing directly and skipping LLM.");
@@ -325,6 +284,21 @@ namespace VAI
         }
 
         #endregion
+
+        // ASR静音超时回调
+        private void HandleAsrSilenceTimeout()
+        {
+            Debug.Log("[VAI Manager] ASR silence timeout, returning to Idle.");
+            TransitionToState(AssistantState.Idle);
+        }
+
+        // ASR最大录音时长回调
+        private void HandleAsrMaxRecordingTimeReached()
+        {
+            Debug.Log("[VAI Manager] ASR max recording time reached, switching to NLU+LLM Processing.");
+            TransitionToState(AssistantState.Processing);
+        }
+
         private void UpdateStatusText()
         {
             var displayText = new StringBuilder();

@@ -161,13 +161,22 @@ namespace VAI
         [Tooltip("Fine-tune the speech recognition parameters.")]
         public Parameters asrParameters = new Parameters();
 
+        public float maxRecordingTime = 20f;
+
+        [Header("Silence Threshold (seconds)")]
+        [Tooltip("静音超时时间（秒），到达后自动回到Idle")]
+        public float silenceThreshold = 2.0f;
+
         [Header("VAD script")]
         [Tooltip("VAD script")]
-        public VadWakeWordDetect vadModule;
+        public SherpaOnnxKeywords vadModule;
 
         // Manager interface events
         public event Action<Sentence> OnRecognitionStreaming;
         public event Action<string> Error;
+
+        // 新增：ASR流程事件
+        // 事件声明移至下方“公共参数和事件”处，避免重复
 
         // Private state
         private WebSocket _websocket;
@@ -179,6 +188,22 @@ namespace VAI
         private bool _isTaskStarted;
         private bool _isTaskFinished;
         private bool _isProcessing = false;
+
+        // ASR采集起点
+        private int _asrStartSampleIndex = 0;
+        private int _lastSentSampleIndex = 0;
+
+        // 公共参数和事件
+        public float SilenceTimeoutSeconds { get; set; } = 2.0f;
+        public event Action OnSilenceTimeout;
+        public event Action OnMaxRecordingTimeReached;
+        public string LastAsrResult { get; private set; } = "";
+
+        private void Awake()
+        {
+            // 保证silenceThreshold和SilenceTimeoutSeconds同步
+            SilenceTimeoutSeconds = silenceThreshold;
+        }
 
         // Recognition result
         private string _lastFinalTranscript = "";
@@ -197,7 +222,11 @@ namespace VAI
                 return;
             }
 
-            Debug.Log("ASR: Starting recognition");
+            // 记录唤醒点采集帧索引
+            _asrStartSampleIndex = vadModule != null ? vadModule.CurrentSampleIndex : 0;
+            _lastSentSampleIndex = _asrStartSampleIndex;
+
+            Debug.Log($"ASR: Starting recognition from sample index {_asrStartSampleIndex}");
             _ = StartStreamingAsync();
         }
 
@@ -205,6 +234,8 @@ namespace VAI
         {
             Debug.Log("ASR: Stopping recognition");
             _currentTaskCts?.Cancel();
+            // 清空麦克风缓存数据
+            vadModule?.ClearAudioBuffer();
         }
 
         #endregion
@@ -274,14 +305,13 @@ namespace VAI
             }
 
             // Validate microphone
-            if (vadModule?.MicrophoneClip == null || !Microphone.IsRecording(vadModule.MicrophoneDevice))
+            Debug.Log($"[ASR Validate] vadModule is null: {vadModule == null}, IsMicActive: {vadModule?.IsMicActive}");
+            if (vadModule == null || !vadModule.IsMicActive)
             {
                 throw new InvalidOperationException("Microphone device is not available.");
             }
 
-            _recordedClip = vadModule.MicrophoneClip;
-            _microphoneDevice = vadModule.MicrophoneDevice;
-
+            // 不再依赖 _recordedClip 和 _microphoneDevice
             Debug.Log("ASR initialization validation passed.");
         }
 
@@ -320,16 +350,19 @@ namespace VAI
 
         private void ConfigureWebSocketEvents()
         {
-            _websocket.OnOpen += () => Debug.Log("WebSocket connection opened.");
-            _websocket.OnClose += (e) => Debug.Log($"WebSocket connection closed: {e}");
+            _websocket.OnOpen += () => Debug.Log("[ASR] WebSocket connection opened.");
+            _websocket.OnClose += (e) => Debug.Log($"[ASR] WebSocket connection closed: {e}");
             _websocket.OnError += (e) =>
             {
-                Debug.LogError($"WebSocket error: {e}");
-                // This could possibly be caused by a WRONG API KEY!
+                Debug.LogError($"[ASR] WebSocket error: {e}");
                 UnityMainThreadDispatcher.Instance().Enqueue(() => Error?.Invoke("Network connection failed."));
                 _isTaskFinished = true;
             };
-            _websocket.OnMessage += HandleWebSocketMessage;
+            _websocket.OnMessage += (bytes) =>
+            {
+                Debug.Log($"[ASR] WebSocket received message, length: {bytes.Length}");
+                HandleWebSocketMessage(bytes);
+            };
         }
 
         private async Task StartAsrTask(string taskId, CancellationToken cancellationToken)
@@ -385,47 +418,102 @@ namespace VAI
         private async Task StreamAudioData(CancellationToken cancellationToken)
         {
             Debug.Log("Starting to stream audio data.");
-            int lastPosition = Microphone.GetPosition(_microphoneDevice);
-            const int minChunkSize = 1024;
 
-            while (!cancellationToken.IsCancellationRequested)
+            const int chunkSize = 1024;
+            const float silenceThreshold = 0.003f; // 静音判定阈值
+            float silenceTimeoutSeconds = SilenceTimeoutSeconds;
+            int silenceSampleCount = 0;
+            int silenceSampleLimit = (int)(silenceTimeoutSeconds * 16000);
+
+            float elapsed = 0f;
+            float sampleRate = 16000f;
+
+            while (true)
             {
-                int currentPosition = Microphone.GetPosition(_microphoneDevice);
-                if (currentPosition != lastPosition)
+                // 录音时长超限
+                if (elapsed >= maxRecordingTime)
                 {
-                    int length = CalculateAudioBufferLength(currentPosition, lastPosition);
-
-                    if (length >= minChunkSize)
-                    {
-                        await SendAudioChunk(lastPosition, length, cancellationToken);
-                        lastPosition = currentPosition;
-                    }
+                    Debug.Log("[ASR] maxRecordingTime reached, finishing ASR task.");
+                    OnMaxRecordingTimeReached?.Invoke();
+                    StopRecognition();
+                    break;
                 }
 
-                await Task.Delay(50, cancellationToken);
+                float[] newData = null;
+                int newLastSampleIndex = 0;
+                if (vadModule != null)
+                {
+                    newData = vadModule.GetPcmDataSince(_lastSentSampleIndex, out newLastSampleIndex);
+                }
+
+                if (newData != null && newData.Length > 0)
+                {
+                    int offset = 0;
+                    while (offset < newData.Length)
+                    {
+                        int sendLen = Math.Min(chunkSize, newData.Length - offset);
+                        float[] chunk = new float[sendLen];
+                        Array.Copy(newData, offset, chunk, 0, sendLen);
+
+                        byte[] bytes = ConvertSamplesToPcmBytes(chunk);
+
+                        float max = float.MinValue, min = float.MaxValue;
+                        foreach (var v in chunk)
+                        {
+                            if (v > max) max = v;
+                            if (v < min) min = v;
+                        }
+                        Debug.Log($"[ASR] Sending audio chunk, samples: {sendLen}, max: {max}, min: {min}");
+
+                        // 静音检测
+                        bool isSilent = true;
+                        for (int i = 0; i < chunk.Length; i++)
+                        {
+                            if (Mathf.Abs(chunk[i]) > silenceThreshold)
+                            {
+                                isSilent = false;
+                                break;
+                            }
+                        }
+                        if (isSilent)
+                        {
+                            silenceSampleCount += chunk.Length;
+                        }
+                        else
+                        {
+                            silenceSampleCount = 0;
+                        }
+                        if (silenceSampleCount >= silenceSampleLimit)
+                        {
+                            Debug.Log("[ASR] Silence timeout reached, finishing ASR task.");
+                            OnSilenceTimeout?.Invoke();
+                            StopRecognition();
+                            break;
+                        }
+
+                        if (_websocket != null && _websocket.State == WebSocketState.Open)
+                        {
+                            await _websocket.Send(bytes);
+                        }
+
+                        offset += sendLen;
+                        elapsed += sendLen / sampleRate;
+                    }
+                    _lastSentSampleIndex = newLastSampleIndex;
+                }
+                else
+                {
+                    await Task.Delay(50, cancellationToken);
+                    elapsed += 0.05f;
+                }
             }
 
             Debug.Log("Audio data streaming finished.");
         }
 
-        private int CalculateAudioBufferLength(int currentPosition, int lastPosition)
-        {
-            return (currentPosition > lastPosition)
-                ? (currentPosition - lastPosition)
-                : (_recordedClip.samples - lastPosition + currentPosition);
-        }
 
-        private async Task SendAudioChunk(int startPosition, int length, CancellationToken cancellationToken)
-        {
-            float[] samples = new float[length];
-            _recordedClip.GetData(samples, startPosition);
-            byte[] pcmData = ConvertSamplesToPcmBytes(samples);
 
-            if (_websocket.State == WebSocketState.Open)
-            {
-                await _websocket.Send(pcmData);
-            }
-        }
+        // 已废弃的 AudioClip 相关方法，全部移除
 
         private async Task FinishAsrTask(string taskId, CancellationToken cancellationToken)
         {
@@ -448,7 +536,7 @@ namespace VAI
             await _websocket.SendText(json);
 
             // Wait for the task to finish
-            await WaitForCondition(() => _isTaskFinished, vadModule.maxRecordingTime, "Waiting for task to finish", cancellationToken);
+            await WaitForCondition(() => _isTaskFinished, maxRecordingTime, "Waiting for task to finish", cancellationToken);
             Debug.Log("ASR task finished.");
         }
 
@@ -499,16 +587,29 @@ namespace VAI
         {
             try
             {
+                Debug.Log($"[ASR] HandleRecognitionResult raw message: {message}");
+
                 var response = JsonConvert.DeserializeObject<RecognitionResponse>(message);
                 var sentence = response?.payload?.output?.sentence;
 
                 if (sentence != null && !string.IsNullOrEmpty(sentence.text))
                 {
-                    // Invoke the event on the main thread with the complete Sentence object
+                    Debug.Log($"[ASR] Recognition result: {sentence.text}");
                     UnityMainThreadDispatcher.Instance().Enqueue(() =>
                     {
                         OnRecognitionStreaming?.Invoke(sentence);
                     });
+
+                    // 检查静音（end_time不为null）或句子结束
+                    if (sentence.end_time != null || sentence.sentence_end)
+                    {
+                        Debug.Log("[ASR] Detected end_time or sentence_end, finishing ASR task.");
+                        StopRecognition();
+                    }
+                }
+                else
+                {
+                    Debug.Log("[ASR] Recognition result: <empty or null>");
                 }
             }
             catch (Exception ex)
