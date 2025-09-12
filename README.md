@@ -11,15 +11,8 @@
 <div id="en-us">
 
 [![Unity Version](https://img.shields.io/badge/Unity-2022.3.47%2B-blue.svg)](https://unity.com/)
-[![Platform](https://img.shields.io/badge/Platform-Android%20-green.svg)](#)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20-blue.svg)](#)
-[![Platform](https://img.shields.io/badge/Platform-iOS%20-lightgrey.svg)](#)
-[![Platform](https://img.shields.io/badge/Platform-macOS%20-darkgrey.svg)](#)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20%7C%20iOS%20%7C%20macOS-grey%20%7C%20grey%20%7C%20grey%20%7C%grey.svg)](#)
 
-**Platform Support & Wake Word**  
-This project is designed to be cross-platform (all major platforms supported). The wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity).  
-**ASR Limitation**: The paraformer API is currently only available for registration and use within China. Users outside China cannot register for this service.  
-**Future Plan**: We plan to adopt the sherpa-onnx paraformer v1 realtime model in future updates, making the system more universally accessible.
 
 `VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
 
@@ -45,7 +38,7 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 ## Features
 
-* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (Wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity).)
+* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (Wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity) by Eitan Wong.)
 * **High-Accuracy multilingual ASR**: Integrates with Alibaba Cloud's Qwen model for reliable speech-to-text transcription.  
   > **Note:** The paraformer API is only available for registration and use within China. Future updates will support the sherpa-onnx paraformer v1 realtime model.
 * **LLM-Powered Intent Parsing**: Leverages a Large Language Model to interpret natural language and convert it into a structured JSON `tool_call`.
@@ -127,9 +120,9 @@ deactivate Functions
 
 >🔔Before you begin, ensure you have the following:
 > * **Unity Editor**: 2022.3.47 or newer.
-> * **Windows**: Required for the current wake word implementation.
 > * **Alibaba Cloud Account**: With the BaiLian paraformer and LLM service enabled, we need dashscope api-key.
 > For instructions on obtaining a key, see the official documentation: [How to obtain an API Key](https://help.aliyun.com/zh/model-studio/get-api-key)
+> * **Aliyun Limitation**: The ASR model using dashscope API is currently only available for registration and use within China. Users outside China cannot register for this service. I plan to adopt the sherpa-onnx paraformer v1 realtime model in future updates, making the system more universally accessible.
 
 ### Dependencies
 >🔔It should be installed automatically by Unity during opening the project.
@@ -209,11 +202,6 @@ deactivate Functions
 
 [](https://unity.com/)
 [](https://www.google.com/search?q=%23)
-
-**平台与唤醒词说明**  
-本项目支持全平台通用，唤醒词检测采用 [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity)。  
-**ASR 限制**：paraformer API 仅限中国地区注册使用，其他地区用户无法注册该服务。  
-**后续计划**：将采用 sherpa-onnx 的 paraformer v1 实时模型，后续会持续更新，提升系统的全球可用性。
 
 `VAI (Unity Voice AI Assistant)` 是一个端到端系统，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
 
@@ -310,9 +298,9 @@ deactivate Functions
 > 🔔 在开始之前，请确保您已具备以下条件：
 >
 >   * **Unity 编辑器**：2022.3.47 或更高版本。
->   * **Windows**：当前的唤醒词实现需要此平台。
 >   * **阿里云账户**：并已开通百炼的 Paraformer 和大模型服务，我们需要 dashscope API-Key。
 >     关于如何获取 API-Key，请参阅官方文档：[如何获取 API Key](https://help.aliyun.com/zh/model-studio/get-api-key)
+>   * **ASR 限制**：ASR 用的 paraformer API 仅限中国地区注册使用，其他地区用户无法注册该服务。后面将采用 sherpa-onnx 的 paraformer v1 实时模型，后续会持续更新，提升系统的全球可用性。
 
 ### 依赖项
 
