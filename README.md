@@ -18,7 +18,7 @@
 ![macOS](https://img.shields.io/badge/macOS-black.svg)
 
 
-`VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), and LLM-driven tool calling to translate natural user speech into executable functions.
+`VAI (Unity Voice AI Assistant)` is a **lightweight, low-dependency, and API-key based** system for implementing voice control in your Unity projects. It integrates wake word detection, Automatic Speech Recognition (ASR), local 0.1B embedding model intent match and api-based LLM-driven tool calling to translate natural user speech into executable functions.
 
 This system can be easily integrated into any Unity project.
 
@@ -42,52 +42,53 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 ## Features
 
-* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (Wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity) by Eitan Wong.)
-* **High-Accuracy multilingual ASR**: Integrates with Alibaba Cloud's Qwen model for reliable speech-to-text transcription.  
-  > **Note:** The paraformer API is only available for registration and use within China. Future updates will support the sherpa-onnx paraformer v1 realtime model.
-* **LLM-Powered Intent Parsing**: Leverages a Large Language Model to interpret natural language and convert it into a structured JSON `tool_call`.
-    > <!> Through the local real-time intent parsing `NluController.cs` module, it reduces the number of LLM calls and lock the function and implement 0-delay feedback.
-* **Seamless Function Execution**: Automatically maps the LLM's output to execute corresponding C# functions within Unity.
-* **Simple Configuration with UI**: You can use VAI UI in your own project.
+* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (Wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity).)
+* **High-Accuracy Multilingual ASR**: Integrates Alibaba Cloud [Paraformer v2](https://help.aliyun.com/zh/model-studio/paraformer-speech-recognition/?spm=a2c4g.11186623.0.i2#undefined) for reliable speech-to-text conversion.
+  > 🔔 The paraformer API is only available for registration and use within China. Future updates will support the sherpa-onnx paraformer v1 realtime model.
+* **Local Intent Recognition**: Uses a local embedding 0.1B model ([bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)) for improved performance and speed. Tested to support both Chinese and English.
+  > 🔔 The local real-time intent parsing module reduces LLM call frequency, locks the function before LLM, and provides zero-delay feedback.
+* **LLM-Powered High-Accuracy Intent Parsing**: Utilizes [Qwen LLM](https://help.aliyun.com/zh/model-studio/use-qwen-by-calling-api?spm=a2c4g.11186623.help-menu-2400256.d_2_1_0.138069ceCqgko9#a9b7b197e2q2v) to interpret natural language and convert it into structured JSON `tool_call`.
+* **Seamless Function Execution**: Automatically maps the LLM's output to corresponding Unity functions and executes them.
+* **Simple Configuration via UI**: You can use the VAI UI in your own project.
 
 ## How It Works
 
-The system operates in an explicit workflow:
+The system operates in a simple, step-by-step workflow:
 
 <!--
 @startuml
 
-title VAI Workflow
+title VAI
 
-actor User
-participant "Voice Activity Detection" as VAD
-participant "Speech Recognition" as ASR
-participant "Intent NLU" as NLU
-participant "LLM" as LLM
-participant "Functions" as Functions
+actor User as 用户
+    participant "VAD (Voice Activity Detection)" as VAD
+    participant "ASR (Speech Recognition)" as ASR
+    participant "NLU (Intent Matching)" as NLU
+    participant "LLM (Large Language Model)" as LLM
+    participant "Functions" as Functions
 
 User -> VAD: Starts speaking
 activate VAD
-note right of VAD:wake word
+note right of VAD: Detects wake word
 
 VAD -> ASR: Streams audio data
 activate ASR
 activate NLU
 
-VAD -> ASR: Silence, ends ASR
+VAD -> ASR: Silence detected, ASR ends
 deactivate VAD
 
-ASR -> NLU:intent matching
+ASR -> NLU: Continuous intent matching
 deactivate ASR
 
-alt Fast Path:intent matched
+alt Fast Path: Local intent matched
 
-    NLU -> Functions:Calls the function
+    NLU -> Functions: Directly calls matched function
     activate Functions
   
 else Fallback Path: Resort to LLM
 
-    NLU -> LLM: Local intent failed
+    NLU -> LLM: Local intent failed, request LLM
     deactivate NLU
     activate LLM
     LLM -> Functions: tool_call
@@ -97,8 +98,8 @@ end
 deactivate NLU
 deactivate LLM
 
-Functions -> Functions: Executes
-Functions -> User: Returns the operation result
+Functions -> Functions: Executes function call
+Functions -> User: Returns operation result
 deactivate Functions
 
 @enduml
@@ -108,16 +109,19 @@ deactivate Functions
 </p>
 
 1.  **Wake Word Detection**
-    * The system listens passively for a predefined wake word (e.g., `"Assistant"`).
+    * The system passively listens for a predefined wake word (e.g., `"Assistant"`).
 
 2.  **Speech-to-Text (ASR)**
-    * Upon activation, the user's voice command is recorded and sent to the cloud for transcription.
+    * The user's voice command is recorded and sent to the cloud for transcription.
 
-3.  **LLM Tool Call Generation**
-    * The transcribed text is sent to the LLM, which generates a structured JSON `tool_call` based on the user's intent and predefined functions.
+3.  **Local Intent Matching**
+    * The ASR text is matched to functions using a semantic embedding model (cosine similarity). Confidence is calculated by algorithm. Local matching time is 48ms, and the function is triggered after user silence, with no perceptible delay.
 
-4.  **Function Execution**
-    * Your Unity application receives JSON, parses it, and invokes the corresponding local C# function with the provided parameters.
+4.  **LLM Tool Call Generation**
+    * If intent matching confidence is low and function call fails, the transcribed text is sent to the LLM, which generates a structured JSON `tool_call` based on the user's intent and predefined functions.
+
+5.  **Function Execution**
+    * Your Unity application receives the JSON, parses it, and invokes the corresponding local function with the provided parameters.
 
 ## Getting Started
 
@@ -129,15 +133,20 @@ deactivate Functions
 > * **Aliyun Limitation**: The ASR model using dashscope API is currently only available for registration and use within China. Users outside China cannot register for this service. I plan to adopt the sherpa-onnx paraformer v1 realtime model in future updates, making the system more universally accessible.
 
 ### Dependencies
->🔔It should be installed automatically by Unity during opening the project.
+>🔔 Unity should automatically install these dependencies when opening the project. You only need to use NuGet to install `Microsoft.ML.OnnxRuntime`.
+
+2.  **Add OnnxRuntime from [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity)**
+    * In `Package Manager`, click the `+` icon and select `Add package from git URL...`.
+    * Enter `https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity` and click `Add`.
+    * Reopen the project, then in the top menu bar click `NuGet` -> `Manage NuGet Packages`, search for `Microsoft.ML.OnnxRuntime` and click `Install`.
 
 1.  **Add Newtonsoft JSON Package**
-    * In Unity, navigate to `Window` -> `Package Manager`.
+    * Add this package from `NuGetForUnity` or in Unity, navigate to `Window` -> `Package Manager`.
     * Click the `+` icon and select `Add package by name...`.
     * Enter `com.unity.nuget.newtonsoft-json` and click `Add`.
 
-2.  **Add NativeWebSocket Package**
-    * In the `Package Manager`, click the `+` icon and select `Add package from git URL...`.
+2.  **Add [NativeWebSocket](https://github.com/endel/NativeWebSocket) Package**
+    * In `Package Manager`, click the `+` icon and select `Add package from git URL...`.
     * Enter `https://github.com/endel/NativeWebSocket.git#upm` and click `Add`.
 
 ## Usage
@@ -198,6 +207,19 @@ deactivate Functions
     * Use the `Shutdown()` function to stop the VAI service and UI when needed.
     * This makes it easy to integrate VAI into your existing Unity projects.
 
+## Known Issues
+
+- `Failed to load 'Assets/.../sherpa-onnx-c-api.dll'` `DllNotFoundException: sherpa-onnx-c-api assembly`
+  > This is usually caused by DLL conflicts for different platforms under Plugins. Disable the `Import Settings` -> `Select platforms for plugin` -> `Include Platforms` -> `Editor` for DLLs you are not currently using, and only keep the DLL for the platform you need.
+
+- Android devices cannot use custom wake words
+  > Android devices cannot read custom wake words. You must manually modify the wake word file under the app's persistent address on the Android device.
+
+- Android devices cannot use dashscope API environment variables, causing ASR and LLM to fail.
+  > Hardcode the environment variable when building the app. Windows does not have this issue. Future updates will add environment variable migration fixes.
+
+- If the system fails, first check if the API is out of quota or if the environment variable is not set.
+
 <br>
 <p align="right"><a href="#readme">⬆ Back to Top</a></p>
 </div>
@@ -207,7 +229,7 @@ deactivate Functions
 [](https://unity.com/)
 [](https://www.google.com/search?q=%23)
 
-`VAI (Unity Voice AI Assistant)` 是一个端到端全平台流程，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 和由大语言模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。
+`VAI (Unity Voice AI Assistant)` 是一个端到端全平台流程，用于在您的 Unity 项目中实现语音控制。它集成了唤醒词检测、自动语音识别 (ASR) 、本地 embedding 意图识别和由大语模型 (LLM) 驱动的工具调用，可将用户的自然语言语音转化为可执行的函数。本地测试指令最快在20ms内响应。
 
 该系统可以非常方便地集成到任何 Unity 项目中。
 
@@ -216,10 +238,11 @@ deactivate Functions
 ## 功能
 
   * **自定义唤醒词**：定义一个或多个短语来激活语音监听。（唤醒词检测采用 [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity)。）
-  * **高精度多语言 ASR**：集成了阿里云的通义千问模型，实现可靠的语音转文本功能。  
-    > <!> paraformer API 仅限中国地区注册使用，后续将支持 sherpa-onnx 的 paraformer v1 实时模型。
-  * **LLM 驱动的意图解析**：利用大语言模型来解释自然语言，并将其转换为结构化的 JSON `tool_call`。
-    > <!> 通过本地实时的意图解析模块, 可以减少LLM 调用频次, 在LLM 之前锁定函数并实现0延迟反馈。
+  * **高精度多语言 ASR**：集成了阿里云的 [Parformer v2](https://help.aliyun.com/zh/model-studio/paraformer-speech-recognition/?spm=a2c4g.11186623.0.i2#undefined)，实现可靠的语音转文本功能。  
+    > 🔔paraformer API 仅限中国地区注册使用，后续将支持 sherpa-onnx 的 paraformer v1 实时模型。
+  * **本地意图识别**：使用本地 embedding 0.1B 模型 [bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)，可获得更好的性能和速度。经测试支持中英双语。
+    > 🔔通过本地实时的意图解析模块, 可以减少LLM 调用频次, 在LLM 之前锁定函数并实现0延迟反馈。
+  * **LLM 驱动的高准确率意图解析**：利用[通义千问大语言模型](https://help.aliyun.com/zh/model-studio/use-qwen-by-calling-api?spm=a2c4g.11186623.help-menu-2400256.d_2_1_0.138069ceCqgko9#a9b7b197e2q2v)来解释自然语言，并将其转换为结构化的 JSON `tool_call`。
   * **无缝的函数执行**：自动将 LLM 的输出映射到 Unity 内部相应的函数并执行。
   * **通过 UI 进行简单配置**：您可以在自己的项目中使用 VAI 的 UI 界面。
 
@@ -280,20 +303,23 @@ deactivate Functions
  <img src="https://i.imgur.com/ndrYQ2M.png" width="600">
 </p>
 
-
 1.  **唤醒词检测**
 
       * 系统被动监听预设的唤醒词（例如，“`小助手`”）。
 
 2.  **语音转文本 (ASR)**
 
-      * 激活后，用户的语音命令被录制并发送到云端进行转录。
+      * 用户的语音命令被录制并发送到云端进行转录。
 
-3.  **LLM 生成工具调用**
+3.  **本地意图匹配**
 
-      * 转录后的文本被发送到 LLM，LLM 会根据用户的意图和预定义的函数生成一个结构化的 JSON `tool_call`。
+      * ASR 文本被embedding 模型基于语义余弦相似度进行函数匹配，通过算法计算置信度，本地测试匹配时间48ms，函数等待用户静音后触发，实际体感无延迟。
 
-4.  **函数执行**
+4.  **LLM 生成工具调用**
+
+      * 若意图匹配置信度低导致函数调用失败，转录后的文本被发送到 LLM，LLM 会根据用户的意图和预定义的函数生成一个结构化的 JSON `tool_call`。
+
+5.  **函数执行**
 
       * 您的 Unity 应用程序接收 JSON，对其进行解析，并使用提供的参数调用相应的本地函数。
 
@@ -308,7 +334,7 @@ deactivate Functions
 
 ### 依赖项
 
-> 🔔 打开项目时，Unity 应该会自动安装这些依赖项。
+> 🔔 打开项目时，Unity 应该会自动安装这些依赖项。仅需打开NuGet 安装 `Microsoft.ML.OnnxRuntime`
 
 2.  **从 [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity) 包添加 OnnxRuntime**
 
