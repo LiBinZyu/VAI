@@ -310,13 +310,19 @@ deactivate Functions
 
 > 🔔 打开项目时，Unity 应该会自动安装这些依赖项。
 
+2.  **从 [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity) 包添加 OnnxRuntime**
+
+      * 在 `Package Manager` 中，点击 `+` 图标，选择 `Add package from git URL...`。
+      * 输入 `https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity` 并点击 `Add`。
+      * 重开项目，在顶部菜单栏点击`NuGet` -\> `Manage NuGet Packages` 搜索 `Microsoft.ML.OnnxRuntime` 点击`Install`。
+      
 1.  **添加 Newtonsoft JSON 包**
 
-      * 在 Unity 中，导航到 `Window` -\> `Package Manager`。
+      * 从`NuGetForUnity` 添加此包或在 Unity 中，导航到 `Window` -\> `Package Manager`。
       * 点击 `+` 图标，选择 `Add package by name...`。
       * 输入 `com.unity.nuget.newtonsoft-json` 并点击 `Add`。
 
-2.  **添加 NativeWebSocket 包**
+2.  **添加 [NativeWebSocket](https://github.com/endel/NativeWebSocket) 包**
 
       * 在 `Package Manager` 中，点击 `+` 图标，选择 `Add package from git URL...`。
       * 输入 `https://github.com/endel/NativeWebSocket.git#upm` 并点击 `Add`。
@@ -384,6 +390,19 @@ deactivate Functions
       * 使用 `Startup()` 函数来初始化并启动 VAI 服务和 UI。
       * 使用 `Shutdown()` 函数在需要时停止 VAI 服务和 UI。
       * 这使得将 VAI 集成到您现有的 Unity 项目中变得非常简单。
+
+## Known Issues
+
+- `Failed to load 'Assets/.../sherpa-onnx-c-api.dll'` `DllNotFoundException: sherpa-onnx-c-api assembly`
+  > 这通常是 Plugins 下面的不同平台的dll 冲突，把当前不用的dll 的`Import Settings` -\> `Select platforms for plugin` -\> `Include Platforms` -\> `Editor` 关掉就行，只保留当前要用的平台。
+
+- 安卓设备无法使用自定义唤醒词
+  > 安卓设备读不到自定义唤醒词，只能手动在安卓设备的app persistent address 下面的唤醒词文件里面修改。
+
+- 安卓设备无法使用dashscope api 的环境变量，导致ASR和LLM失效。
+  > 打包的时候手动写死环境变量。Windows没有这个问题。之后会增加环境变量迁移的修复。
+
+- 失效先检查是否api 欠费或者环境变量没有设置
 
 <br>
 <p align="right"><a href="#readme">⬆ 返回顶部</a></p>
