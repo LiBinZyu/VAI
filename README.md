@@ -135,19 +135,23 @@ deactivate Functions
 ### Dependencies
 >🔔 Unity should automatically install these dependencies when opening the project. You only need to use NuGet to install `Microsoft.ML.OnnxRuntime`.
 
-2.  **Add OnnxRuntime from [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity)**
+1.  **Add OnnxRuntime from [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity)**
     * In `Package Manager`, click the `+` icon and select `Add package from git URL...`.
     * Enter `https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity` and click `Add`.
     * Reopen the project, then in the top menu bar click `NuGet` -> `Manage NuGet Packages`, search for `Microsoft.ML.OnnxRuntime` and click `Install`.
 
-1.  **Add Newtonsoft JSON Package**
+2.  **Add Newtonsoft JSON Package**
     * Add this package from `NuGetForUnity` or in Unity, navigate to `Window` -> `Package Manager`.
     * Click the `+` icon and select `Add package by name...`.
     * Enter `com.unity.nuget.newtonsoft-json` and click `Add`.
 
-2.  **Add [NativeWebSocket](https://github.com/endel/NativeWebSocket) Package**
+3.  **Add [NativeWebSocket](https://github.com/endel/NativeWebSocket) Package**
     * In `Package Manager`, click the `+` icon and select `Add package from git URL...`.
     * Enter `https://github.com/endel/NativeWebSocket.git#upm` and click `Add`.
+
+4. **Download Streaming Assets**
+    * Download the [sherpa-onnx realtime asr model and bge-small-zh-v1.5 files](https://pan.baidu.com/s/1QYQMk2LMdgVKprkFQVlj2g?pwd=gujq).
+    * Extract files wihtin to `VAI/Assets/StreamingAssets/`.
 
 ## Usage
 
@@ -336,22 +340,26 @@ deactivate Functions
 
 > 🔔 打开项目时，Unity 应该会自动安装这些依赖项。仅需打开NuGet 安装 `Microsoft.ML.OnnxRuntime`
 
-2.  **从 [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity) 包添加 OnnxRuntime**
+1.  **从 [NuGetForUnity](https://github.com/GlitchEnzo/NuGetForUnity) 包添加 OnnxRuntime**
 
       * 在 `Package Manager` 中，点击 `+` 图标，选择 `Add package from git URL...`。
       * 输入 `https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity` 并点击 `Add`。
       * 重开项目，在顶部菜单栏点击`NuGet` -\> `Manage NuGet Packages` 搜索 `Microsoft.ML.OnnxRuntime` 点击`Install`。
       
-1.  **添加 Newtonsoft JSON 包**
+2.  **添加 Newtonsoft JSON 包**
 
       * 从`NuGetForUnity` 添加此包或在 Unity 中，导航到 `Window` -\> `Package Manager`。
       * 点击 `+` 图标，选择 `Add package by name...`。
       * 输入 `com.unity.nuget.newtonsoft-json` 并点击 `Add`。
 
-2.  **添加 [NativeWebSocket](https://github.com/endel/NativeWebSocket) 包**
+3.  **添加 [NativeWebSocket](https://github.com/endel/NativeWebSocket) 包**
 
       * 在 `Package Manager` 中，点击 `+` 图标，选择 `Add package from git URL...`。
       * 输入 `https://github.com/endel/NativeWebSocket.git#upm` 并点击 `Add`。
+
+4. **从网盘下载 Streaming Assets**
+    * 下载 [sherpa-onnx realtime asr 模型和 bge-small-zh-v1.5 的embedding 模型](https://pan.baidu.com/s/1QYQMk2LMdgVKprkFQVlj2g?pwd=gujq).
+    * 把里面的文件解压到 `VAI/Assets/StreamingAssets/`.
 
 ## 使用方法
 
