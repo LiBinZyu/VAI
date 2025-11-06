@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://i.imgur.com/4aLrv4a.jpeg">
+<img src="https://i.imgur.com/7U4LJza.png">
   
 # Unity Voice AI Assistant
 </div>
