@@ -10,7 +10,7 @@
 
 <div id="en-us">
 
-[![Unity](https://img.shields.io/badge/Unity-2022.3.47%2B-000000?logo=unity&logoColor=white&color=grey)](https://unity.com/)
+[![Unity](https://img.shields.io/badge/Unity-2022.3.62%2B-000000?logo=unity&logoColor=white&color=grey)](https://unity.com/)
 ![csharp](https://img.shields.io/badge/C%23-239120?&color=grey)
 ![Android](https://img.shields.io/badge/-000?logo=android&logoColor=fff)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white&color=black)
@@ -53,7 +53,7 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 ## How It Works
 
-The system operates in a simple, step-by-step workflow:
+The system operates in a step-by-step workflow:
 
 <!--
 @startuml
@@ -105,29 +105,29 @@ deactivate Functions
 @enduml
 -->
 <p align="center">
- <img src="https://i.imgur.com/0iU9FPF.png" width="600">
+ <img src="https://i.imgur.com/DhtR1ku.png" width="600">
 </p>
 
 1.  **Wake Word Detection**
-    * The system passively listens for a predefined wake word (e.g., `"Assistant"`).
+    The system passively listens for a predefined wake word (e.g., `"Assistant"`) using first found microphone by default.
 
 2.  **Speech-to-Text (ASR)**
-    * The user's voice command is recorded and sent to the cloud for transcription.
+    The user's voice command is recorded and sent to the cloud for transcription, it returns sentences with punctuations (or emotion optional).
 
 3.  **Local Intent Matching**
-    * The ASR text is matched to functions using a semantic embedding model (cosine similarity). Confidence is calculated by algorithm. Local matching time is 48ms, and the function is triggered after user silence, with no perceptible delay.
+    The ASR text is matched to functions using a semantic embedding model (cosine similarity). Confidence is calculated by $S_{fit} = 0.6 \times S_{func} + 0.4 \times S_{params} $. If $S_{fit}$ is above a threshold and clearly higher than other functions, that function is executed locally; otherwise the system falls back to cloud understanding. Local matching time is 48ms, and the function is triggered after user silence, with no perceptible delay.
 
 4.  **LLM Tool Call Generation**
-    * If intent matching confidence is low and function call fails, the transcribed text is sent to the LLM, which generates a structured JSON `tool_call` based on the user's intent and predefined functions.
+    If intent matching confidence is low and function call fails, the transcribed text is sent to the LLM, which generates a structured JSON `tool_call` based on the user's intent and predefined functions.
 
 5.  **Function Execution**
-    * Your Unity application receives the JSON, parses it, and invokes the corresponding local function with the provided parameters.
+    Your Unity application receives the JSON, parses it, and invokes the corresponding local function with the provided parameters.
 
 ## Getting Started
 
 
 >🔔Before you begin, ensure you have the following:
-> * **Unity Editor**: 2022.3.47 or newer.
+> * **Unity Editor**: 2022.3.62 or newer.
 > * **Alibaba Cloud Account**: With the BaiLian paraformer and LLM service enabled, we need dashscope api-key.
 > For instructions on obtaining a key, see the official documentation: [How to obtain an API Key](https://help.aliyun.com/zh/model-studio/get-api-key)
 > * **Aliyun Limitation**: The ASR model using dashscope API is currently only available for registration and use within China. Users outside China cannot register for this service. I plan to adopt the sherpa-onnx paraformer v1 realtime model in future updates, making the system more universally accessible.
@@ -304,28 +304,23 @@ deactivate Functions
 @enduml
 -->
 <p align="center">
- <img src="https://i.imgur.com/ndrYQ2M.png" width="600">
+ <img src="https://i.imgur.com/DhtR1ku.png" width="600">
 </p>
 
 1.  **唤醒词检测**
-
-      * 系统被动监听预设的唤醒词（例如，“`小助手`”）。
+系统被动监听预设的唤醒词（例如，“`小助手`”）。
 
 2.  **语音转文本 (ASR)**
-
-      * 用户的语音命令被录制并发送到云端进行转录。
+用户的语音命令被录制并发送到云端进行转录。
 
 3.  **本地意图匹配**
-
-      * ASR 文本被embedding 模型基于语义余弦相似度进行函数匹配，通过算法计算置信度，本地测试匹配时间48ms，函数等待用户静音后触发，实际体感无延迟。
+ASR 文本通过 embedding 模型基于语义余弦相似度进行函数匹配，置信度的计算公式为 $S_{fit} = 0.6 \times S_{func} + 0.4 \times S_{params}$。如果 $S_{fit}$ 超过阈值且明显高于其他函数，则本地执行该函数；否则系统将走LLM。经本地测试，匹配耗时 48ms，函数在用户静音后触发，实际体验无延迟。
 
 4.  **LLM 生成工具调用**
-
-      * 若意图匹配置信度低导致函数调用失败，转录后的文本被发送到 LLM，LLM 会根据用户的意图和预定义的函数生成一个结构化的 JSON `tool_call`。
+若意图匹配置信度低导致函数调用失败，转录后的文本被发送到 LLM，LLM 会根据用户的意图和预定义的函数生成一个结构化的 JSON `tool_call`。
 
 5.  **函数执行**
-
-      * 您的 Unity 应用程序接收 JSON，对其进行解析，并使用提供的参数调用相应的本地函数。
+您的 Unity 应用程序接收 JSON，对其进行解析，并使用提供的参数调用相应的本地函数。
 
 ## 开始使用
 
