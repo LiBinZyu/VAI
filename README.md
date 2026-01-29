@@ -433,6 +433,6 @@ deactivate Functions
 </div>
 
 
-[^1] sherpa-onnx-unity. https://github.com/EitanWong/com.eitan.sherpa-onnx-unity
+[^1]: sherpa-onnx-unity. https://github.com/EitanWong/com.eitan.sherpa-onnx-unity
 
-[^2] An Empirical Evaluation of the System Usability Scale. https://doi.org/10.1080/10447310802205776
+[^2]: An Empirical Evaluation of the System Usability Scale. https://doi.org/10.1080/10447310802205776
