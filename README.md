@@ -55,8 +55,8 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 | Mode | Response Time Avg.\* | Single-Task Accuracy | Multi-Step Success | Cost** | SUS[^2] Usability |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| **VAI (Hybrid)** | **452ms** $██░░░░░░░░$ | **89%** | **96%** | **¥7.86** | **78.7** |
-| Cloud-Only | 1204ms $████████░░$ | 75% | 98% | ¥19.86 | 74.2 |
+| **VAI (Hybrid)** | **452ms** ██░░░░░░░░ | **89%** | **96%** | **¥7.86** | **78.7** |
+| Cloud-Only | 1204ms ████████░░ | 75% | 98% | ¥19.86 | 74.2 |
 | Local-Only |   48ms $█░░░░░░░░░$ | 68% | 0% | ¥4.86 | 73.8 |
 
 > \* Time during ASR result and final actions
