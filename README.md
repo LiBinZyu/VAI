@@ -42,7 +42,7 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 
 ## Features
 
-* **Customizable Wake Word**: Define one or more phrases to activate voice listening. (Wake word detection uses [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity).)
+* Customizable Wake Word. [^1]
 * **High-Accuracy Multilingual ASR**: Integrates Alibaba Cloud [Paraformer v2](https://help.aliyun.com/zh/model-studio/paraformer-speech-recognition/?spm=a2c4g.11186623.0.i2#undefined) for reliable speech-to-text conversion.
   > 🔔 The paraformer API is only available for registration and use within China. Future updates will support the sherpa-onnx paraformer v1 realtime model.
 * **Local Intent Recognition**: Uses a local embedding 0.1B model ([bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)) for improved performance and speed. Tested to support both Chinese and English.
@@ -50,6 +50,19 @@ A user can say something like, `"Flip the cube, move me a bit closer to it and p
 * **LLM-Powered High-Accuracy Intent Parsing**: Utilizes [Qwen LLM](https://help.aliyun.com/zh/model-studio/use-qwen-by-calling-api?spm=a2c4g.11186623.help-menu-2400256.d_2_1_0.138069ceCqgko9#a9b7b197e2q2v) to interpret natural language and convert it into structured JSON `tool_call`.
 * **Seamless Function Execution**: Automatically maps the LLM's output to corresponding Unity functions and executes them.
 * **Simple Configuration via UI**: You can use the VAI UI in your own project.
+
+## Performance
+
+| Mode | Response Time Avg.\* | Single-Task Accuracy | Multi-Step Success | Cost** | SUS[^2] Usability |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| **VAI (Hybrid)** | **452ms** $██░░░░░░░░$ | **89%** | **96%** | **¥7.86** | **78.7** |
+| Cloud-Only | 1204ms $████████░░$ | 75% | 98% | ¥19.86 | 74.2 |
+| Local-Only |   48ms $█░░░░░░░░░$ | 68% | 0% | ¥4.86 | 73.8 |
+
+> \* Time during ASR result and final actions
+
+> \** Cost per 1000 Commands (est.) based on real-world usage with ~80% local intent interception rate vs. cloud-only LLM solutions
+
 
 ## How It Works
 
@@ -226,7 +239,7 @@ deactivate Functions
 
 ## 功能
 
-  * **自定义唤醒词**：定义一个或多个短语来激活语音监听。（唤醒词检测采用 [sherpa-onnx-unity](https://github.com/EitanWong/com.eitan.sherpa-onnx-unity)。）
+  * **自定义唤醒词**：定义一个或多个短语来激活语音监听。[^1]
   * **高精度多语言 ASR**：集成了阿里云的 [Parformer v2](https://help.aliyun.com/zh/model-studio/paraformer-speech-recognition/?spm=a2c4g.11186623.0.i2#undefined)，实现可靠的语音转文本功能。  
     > 🔔paraformer API 仅限中国地区注册使用，后续将支持 sherpa-onnx 的 paraformer v1 实时模型。
   * **本地意图识别**：使用本地 embedding 0.1B 模型 [bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)，可获得更好的性能和速度。经测试支持中英双语。
@@ -234,6 +247,18 @@ deactivate Functions
   * **LLM 驱动的高准确率意图解析**：利用[通义千问大语言模型](https://help.aliyun.com/zh/model-studio/use-qwen-by-calling-api?spm=a2c4g.11186623.help-menu-2400256.d_2_1_0.138069ceCqgko9#a9b7b197e2q2v)来解释自然语言，并将其转换为结构化的 JSON `tool_call`。
   * **无缝的函数执行**：自动将 LLM 的输出映射到 Unity 内部相应的函数并执行。
   * **通过 UI 进行简单配置**：您可以在自己的项目中使用 VAI 的 UI 界面。
+
+## 性能
+|       模式      |         平均响应时间\*         |  单任务准确率 | 多步任务成功率 |    成本\**   | 可用性评分[^2] |
+| :-----------: | :--------------------: | :-----: | :-----: | :-------: | :------------: |
+| **VAI（混合模式）** |**452ms** $██░░░░░░░░$ | **89%** | **96%** | **¥7.86** |    **78.7**    |
+|      纯云端      |   1204ms $████████░░$   |   75%   |   98%   |   ¥19.86  |      74.2      |
+|      纯本地      | 48ms $█░░░░░░░░░$   |   68%   |    0%   |   ¥4.86   |      73.8      |
+
+> \* 从语音识别完成返回文本，到系统确定执行意图并触发函数的时间间隔
+
+> \** 每千次指令成本（估算），基于实际使用场景测算，采用约80%本地意图拦截率，对比纯云端大模型方案
+
 
 ## 工作原理
 
@@ -406,3 +431,8 @@ deactivate Functions
 <br>
 <p align="right"><a href="#readme">⬆ 返回顶部</a></p>
 </div>
+
+
+[^1] sherpa-onnx-unity. https://github.com/EitanWong/com.eitan.sherpa-onnx-unity
+
+[^2] An Empirical Evaluation of the System Usability Scale. https://doi.org/10.1080/10447310802205776
